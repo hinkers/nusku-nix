@@ -41,6 +41,10 @@ in
   "polkit on" = min.security.polkit.enable;
   "keyring and online accounts" =
     min.services.gnome.gnome-keyring.enable && min.services.gnome.gnome-online-accounts.enable;
+  "a C toolchain always (nusku-arch's base-devel): gcc and gnumake, so Rust and others can link" =
+    builtins.all (c: builtins.elem c.pkgs.gcc c.config.environment.systemPackages
+      && builtins.elem c.pkgs.gnumake c.config.environment.systemPackages)
+      [ hosts.vm-min hosts.vm-full ];
   "avahi off by default" = !min.services.avahi.enable;
   "another module can enable avahi" =
     (hosts.vm-min.extendModules { modules = [ { services.avahi.enable = true; } ]; }).config.services.avahi.enable;

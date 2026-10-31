@@ -54,6 +54,10 @@ in
     extraGroups = [ "wheel" "networkmanager" "video" "audio" ];
   };
 
+  # A C toolchain on every host, as nusku-arch's base-devel: Rust (rustup's toolchains link
+  # with cc), Go's cgo, Python native wheels and Neovim plugin builds need one.
+  environment.systemPackages = [ pkgs.gcc pkgs.gnumake ];
+
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.gc = {
     automatic = true;
