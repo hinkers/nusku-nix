@@ -8,6 +8,13 @@ local file = (vim.env.XDG_CONFIG_HOME or (vim.env.HOME .. "/.config")) .. "/nusk
 
 local ok, paths = pcall(dofile, file)
 if not ok or type(paths) ~= "table" then
+  vim.schedule(function()
+    vim.notify(
+      "Nusku: " .. file .. " is missing or broken, so nvim-treesitter is cloned by lazy.nvim and its "
+        .. "parsers compiled at runtime. Rebuild (Home Manager writes it) to use the ones from Nix.",
+      vim.log.levels.WARN
+    )
+  end)
   return {}
 end
 return paths

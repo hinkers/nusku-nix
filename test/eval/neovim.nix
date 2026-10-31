@@ -23,6 +23,8 @@ let
   nvimDir = ../../config/nvim;
   nuskuNix = read ../../config/nvim/lua/plugins/nusku-nix.lua;
   rustupStep = c: (hmOf c).home.activation.nuskuRustup or null;
+  rustupUnit = c: (hmOf c).systemd.user.services.nusku-rustup or null;
+  rust = pick [ ] [ "rust" ];
   # Every package lib/langs.nix names, with the language it belongs to.
   allLangPkgs = langs.core ++ lib.concatMap (l: l.runtime ++ l.tools) (builtins.attrValues langs.langs);
   rustAnalyzer = n: lib.hasPrefix "rust-analyzer" n;
@@ -96,18 +98,30 @@ in
   "nvim: java picked: Lombok jar path for jdtls" =
     has "lombok = \"${noCtx pkgs.lombok}/share/java/lombok.jar\""
       (noCtx (cfgText (pick [ "neovim" ] [ "java" ]) "nusku/nvim-nix.lua"));
-  "nvim: lazy.nvim keeps a writable lockfile copy (store files are read-only)" =
-    has "fs_chmod" (read ../../config/nvim/lua/nusku/lockfile.lua);
+  "nvim: lazy.nvim keeps a writable lockfile copy that follows the repo file (store path stamp)" =
+    let l = read ../../config/nvim/lua/nusku/lockfile.lua; in
+    has "fs_chmod" l && has "fs_realpath" l && has "restore" l
+    && has "lockfile.restore()" (read ../../config/nvim/lua/config/lazy.lua);
+  "nvim: a missing nvim-nix.lua is reported, not silently replaced" =
+    has "vim.notify" (read ../../config/nvim/lua/nusku/nix.lua);
   "nvim: accent file rendered from the palette" =
     has "#89b4fa" (cfgText py "nusku/theme/nvim-accent.lua");
   "nvim: Python server is basedpyright (vim.g.lazyvim_python_lsp kept)" =
     has ''vim.g.lazyvim_python_lsp = "basedpyright"'' (read ../../config/nvim/lua/config/options.lua);
 
   # --- rustup --------------------------------------------------------------------------------
-  "rust picked: rustup default + components once, never failing the switch" =
-    let a = (rustupStep (pick [ ] [ "rust" ])).data or ""; in
-    has "grep -q '(default)'" a && has "default stable" a
-    && has "component add" a && has "rust-analyzer" a && has "rustfmt" a
-    && has "warnEcho" a && has "${noCtx pkgs.rustup}/bin/rustup" (noCtx a);
-  "rust not picked: no rustup step" = rustupStep py == null;
+  "rust picked: nusku-rustup user service, in the background after login, retried on failure" =
+    let u = rustupUnit rust; s = u.Service or { }; in
+    u != null && s.Type or "" == "exec" && s.Restart or "" == "on-failure" && s.RestartSec or 0 == 60
+    && u.Install.WantedBy or [ ] == [ "default.target" ]
+    && lib.hasSuffix "/bin/nusku-rustup" (toString (s.ExecStart or ""));
+  "rust picked: the service runs scripts/nusku-rustup packaged with rustup on its PATH" =
+    let script = (import ../../lib/scripts.nix { inherit pkgs lib; }).mkScript {
+      name = "nusku-rustup"; deps = [ pkgs.rustup pkgs.gnugrep ];
+    }; in
+    (rustupUnit rust).Service.ExecStart == [ "${script}/bin/nusku-rustup" ]
+    && has (noCtx pkgs.rustup) (noCtx script.text);
+  "rustup: never in activation (it would hold up boot and could time out the switch)" =
+    rustupStep rust == null && rustupStep py == null;
+  "rust not picked: no rustup service" = rustupUnit py == null;
 }

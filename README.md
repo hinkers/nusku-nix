@@ -44,3 +44,26 @@ where it offers one):
   (Mocha in dark mode) in `.obsidian/themes/Catppuccin`, refreshed on each rebuild and at each
   login, so a new vault is themed by the next login. Catppuccin is switched on once per vault
   (where no other theme was chosen); any later choice in Obsidian, including Default, sticks.
+
+## Neovim and languages
+
+Each picked language installs its runtime and package manager (Python + uv, Node, Go, ...)
+system-wide. With Neovim picked it also gets the language servers, formatters and linters its
+LazyVim extras use, from nixpkgs (`lib/langs.nix`); without Neovim it gets none. Mason is off,
+so an extra you turn on later with `:LazyExtras` gets **no tools**: add them to the host (or to
+the language in `lib/langs.nix`) and rebuild. Treesitter parsers come from Nix; `:TSInstall` and
+`:TSUpdate` can't install anything.
+
+Rust: `rustup` gets a stable default toolchain with rust-analyzer and rustfmt from the
+`nusku-rustup` user service after login (it needs the network once and retries every minute
+until it succeeds; `systemctl --user status nusku-rustup`).
+
+## Updating
+
+- **nvim-treesitter moves with `flake.lock`** (nixpkgs' copy and its grammars), while LazyVim
+  and the other Neovim plugins are pinned by `config/nvim/lazy-lock.json`. Bump them together:
+  after `nix flake update`, regenerate `lazy-lock.json` with every language enabled (Mason and
+  nvim-treesitter stay out of it) and check Neovim still starts cleanly.
+- Neovim follows a new `lazy-lock.json` by itself: on the first start after the rebuild it
+  replaces its own copy (`~/.local/share/nvim/lazy-lock.json`) and restores the plugins to the
+  new pins. `:Lazy update` between rebuilds only changes that copy until the next new pins.

@@ -12,6 +12,7 @@
     ./shell.nix
     ./browsers.nix
     ./neovim.nix
+    ./langs.nix
   ];
 
   home.username = osConfig.nusku.user;

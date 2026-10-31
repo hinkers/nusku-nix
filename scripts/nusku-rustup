@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# nusku-rustup: nusku-arch's apps_hook_rust. Gives rustup a stable default toolchain with the
+# rust-analyzer and rustfmt components (LazyVim's Rust extra runs them from PATH through rustup's
+# proxies). Run by the nusku-rustup user service when Rust is picked (modules/home/langs.nix).
+# Exits 0 when everything is already there (checked locally, no network) or was just installed;
+# exits 1 when a download fails, so the service tries again a minute later.
+set -u
+
+has_default() { rustup default 2>/dev/null | grep -q '(default)'; }
+
+if ! has_default; then
+    echo "nusku-rustup: installing the stable toolchain"
+    if ! rustup default stable; then
+        echo "nusku-rustup: could not install the stable toolchain (offline?); retrying later" >&2
+        exit 1
+    fi
+fi
+
+installed=$(rustup component list --installed 2>/dev/null) || installed=""
+missing=()
+for c in rust-analyzer rustfmt; do
+    grep -q "^$c" <<<"$installed" || missing+=("$c")
+done
+[ ${#missing[@]} -eq 0 ] && exit 0
+
+echo "nusku-rustup: adding ${missing[*]}"
+if ! rustup component add "${missing[@]}"; then
+    echo "nusku-rustup: could not add ${missing[*]} (offline?); retrying later" >&2
+    exit 1
+fi

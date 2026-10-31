@@ -16,8 +16,9 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
--- Nusku: lazy.nvim's lockfile lives outside the config (see lua/nusku/lockfile.lua)
-require("nusku.lockfile").seed()
+-- Nusku: lazy.nvim's lockfile lives outside the config and follows it (see lua/nusku/lockfile.lua)
+local lockfile = require("nusku.lockfile")
+local _, seeded = lockfile.seed()
 
 require("lazy").setup({
   spec = {
@@ -38,7 +39,7 @@ require("lazy").setup({
     -- version = "*", -- try installing the latest stable version for plugins that support semver
   },
   install = { colorscheme = { "tokyonight", "habamax" } },
-  lockfile = require("nusku.lockfile").path,
+  lockfile = lockfile.path,
   checker = {
     enabled = true, -- check for plugin updates periodically
     notify = false, -- notify on update
@@ -59,3 +60,8 @@ require("lazy").setup({
     },
   },
 })
+
+-- Nusku: a rebuild brought new pins: put the installed plugins on them (new installs use them anyway).
+if seeded == "repo" then
+  lockfile.restore()
+end

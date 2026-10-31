@@ -13,8 +13,7 @@
 #    (lib/langs.nix), in the user's profile: on nusku-arch Mason installed them for Neovim only.
 #  - the accent file (~/.config/nusku/theme/nvim-accent.lua) is rendered with the others in
 #    theme.nix.
-# Rust's rustup default and components are a language step, Neovim or not (nusku-arch's
-# apps_hook_rust), so they are here too.
+# Rust's rustup default and components are a language step, Neovim or not: modules/home/langs.nix.
 { osConfig, lib, pkgs, ... }:
 let
   inherit (lib) mkIf;
@@ -37,7 +36,6 @@ let
   };
 
   quote = s: ''"${s}"'';
-  rustup = "${pkgs.rustup}/bin/rustup";
 in
 {
   xdg.configFile = mkIf neovim {
@@ -62,27 +60,4 @@ in
   home.packages = mkIf neovim (
     langs.core ++ [ pkgs.git ] ++ lib.concatMap (id: langs.langs.${id}.tools or [ ]) picked
   );
-
-  # nusku-arch's apps_hook_rust: a stable default toolchain with rust-analyzer and rustfmt (which
-  # LazyVim's Rust extra runs). rustup downloads them, as on nusku-arch (the plan's one exception
-  # to "nothing installs software outside Nix"), so this needs the network once: without it the
-  # switch still succeeds with a warning and the next activation tries again.
-  home.activation.nuskuRustup = mkIf (langPicked "rust") (lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    if ! ${rustup} default 2>/dev/null | grep -q '(default)'; then
-      run ${rustup} default stable \
-        || warnEcho "rustup: could not install the stable toolchain (offline?); it is retried at the next switch or boot."
-    fi
-    if ${rustup} default 2>/dev/null | grep -q '(default)'; then
-      installed=$(${rustup} component list --installed 2>/dev/null || true)
-      missing=""
-      for c in rust-analyzer rustfmt; do
-        case "$installed" in *"$c"*) ;; *) missing="$missing $c" ;; esac
-      done
-      if [ -n "$missing" ]; then
-        # shellcheck disable=SC2086
-        run ${rustup} component add $missing \
-          || warnEcho "rustup: could not add$missing (offline?); it is retried at the next switch or boot."
-      fi
-    fi
-  '');
 }
