@@ -27,7 +27,7 @@ in
   services.pipewire = {
     enable = true;
     alsa.enable = true;
-    alsa.support32Bit = false;
+    alsa.support32Bit = lib.mkDefault false; # Steam turns it on (32-bit games)
     pulse.enable = true;
     wireplumber.enable = true;
   };

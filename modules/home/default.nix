@@ -10,6 +10,7 @@
     ./panels.nix
     ./menus.nix
     ./shell.nix
+    ./browsers.nix
   ];
 
   home.username = osConfig.nusku.user;

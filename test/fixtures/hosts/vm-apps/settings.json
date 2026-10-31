@@ -1,0 +1,18 @@
+{
+  "hostname": "vm-apps",
+  "user": "appy",
+  "gpu": "vm",
+  "accent": "green",
+  "apps": [
+    "neovim", "gh", "claude-code", "lazygit", "docker", "vscode",
+    "firefox", "chromium", "brave", "librewolf", "discord", "obsidian", "libreoffice",
+    "thunderbird", "calendar", "bitwarden", "zathura", "localsend",
+    "spotify", "vlc", "obs", "audacity",
+    "gimp", "krita", "inkscape", "kdenlive", "blender",
+    "photocraft", "vectorcraft", "lightcraft", "pdfcraft", "wordcraft", "soundcraft",
+    "deckcraft", "cadcraft", "gridcraft",
+    "steam", "lutris", "heroic", "parsec", "sunshine", "moonlight", "gamemode", "mangohud",
+    "protonup", "wine",
+    "yazi", "snapper", "remmina", "wayvnc", "gparted", "pokemon"
+  ]
+}
