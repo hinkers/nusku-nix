@@ -51,11 +51,25 @@ in
     !(has "-krabby-" (pkgByName "nusku-fetch").text); # no krabby store path on its PATH
 
   # --- btop ----------------------------------------------------------------------------------
-  "btop: HM program with catppuccin's Mocha theme and nusku-arch's settings" =
-    hm.programs.btop.enable && hm.catppuccin.btop.enable
-    && hm.programs.btop.settings.color_theme == "catppuccin_mocha.theme"
-    && hm.programs.btop.settings.theme_background && hm.programs.btop.settings.rounded_corners
-    && hm.xdg.configFile ? "btop/themes/catppuccin_mocha.theme";
+  "btop: installed; nusku-arch's Mocha theme linked" =
+    builtins.elem "btop" pkgNames
+    && hm.xdg.configFile."btop/themes/catppuccin_mocha.theme".source == ../../config/btop/themes/catppuccin_mocha.theme
+    && has ''color_theme = "catppuccin_mocha"'' (read ../../config/btop/btop.conf);
+  "btop: btop.conf is the user's (btop rewrites it), not managed by HM" =
+    !hm.programs.btop.enable
+    && !(builtins.any (f: lib.hasSuffix "btop/btop.conf" f.target) (builtins.attrValues hm.home.file))
+    && !(hm.xdg.configFile ? "btop/btop.conf");
+  "btop: activation seeds a writable btop.conf only if missing" =
+    let a = hm.home.activation.nuskuBtopConfig.data or ""; in
+    has ''if [ ! -e "$btopConf" ] && [ ! -L "$btopConf" ]; then'' a
+    && has "install -D -m 644" a
+    && has (builtins.unsafeDiscardStringContext "${../../config/btop/btop.conf}") a
+    && has "${hm.xdg.configHome}/btop/btop.conf" a;
+
+  # --- zsh completion ------------------------------------------------------------------------
+  "zsh: compinit runs once (~/.zshrc), not also from /etc/zshrc" =
+    !full.programs.zsh.enableGlobalCompInit
+    && has "compinit" (read ../../config/zsh/zshrc);
 
   # --- yazi ----------------------------------------------------------------------------------
   "yazi picked: HM program, catppuccin theme in the host accent, nusku-arch yazi.toml" =
@@ -64,6 +78,13 @@ in
     && hmP.xdg.configFile."yazi/yazi.toml".source == ../../config/yazi/yazi.toml
     && builtins.all (n: builtins.elem n (map (p: p.pname or p.name or "") hmP.programs.yazi.extraPackages))
       [ "ffmpeg" "7zz" "poppler-utils" "resvg" "chafa" ];
+  "yazi picked: launcher entry is upstream's with nusku-arch's icon (mc)" =
+    let e = hmP.xdg.desktopEntries.yazi or { }; in
+    (e.icon or null) == "mc" && e.name == "Yazi File Manager" && e.exec == "yazi %f"
+    && e.terminal && e.mimeType == [ "inode/directory" ]
+    && e.categories == [ "System" "FileManager" "FileTools" "ConsoleOnly" ]
+    && e.settings.TryExec == "yazi";
   "yazi not picked: not installed or configured" =
-    !hm.programs.yazi.enable && !(hm.xdg.configFile ? "yazi/yazi.toml" && hm.xdg.configFile."yazi/yazi.toml".enable);
+    !hm.programs.yazi.enable && !(hm.xdg.configFile ? "yazi/yazi.toml" && hm.xdg.configFile."yazi/yazi.toml".enable)
+    && !(hm.xdg.desktopEntries ? yazi);
 }

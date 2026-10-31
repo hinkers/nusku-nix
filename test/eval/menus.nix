@@ -11,7 +11,8 @@ let
   # writeShellApplication's text attribute (the file it writes): no build, no IFD.
   scriptText = n: (pkgByName n).text;
   read = f: builtins.readFile f;
-  # nusku-arch config/applications/overrides.list, `hide` lines.
+  # nusku-arch config/applications/overrides.list, `hide` lines. Deliberately repeated from
+  # modules/home/menus.nix: this copy is checked against nusku-arch's list, not against the module.
   hidden = [
     "assistant" "designer" "linguist" "qdbusviewer" "qv4l2" "qvidcap" "lstopo" "xgps"
     "xgpsspeed" "xfce4-about" "rofi" "rofi-theme-selector" "blueman-adapters"

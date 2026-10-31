@@ -46,6 +46,8 @@ in
   console.keyMap = cfg.keymap;
 
   programs.zsh.enable = true;
+  # ~/.zshrc (config/zsh/zshrc) runs compinit itself; one run is enough.
+  programs.zsh.enableGlobalCompInit = false;
   users.users.${cfg.user} = {
     isNormalUser = true;
     shell = pkgs.zsh;

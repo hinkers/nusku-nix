@@ -31,8 +31,8 @@ let
 
   # nusku-arch config/applications/overrides.list `hide` lines: launcher entries nobody opens
   # from the menu. A NoDisplay entry of the same id in the user's profile hides the app's own
-  # (harmless when the app isn't installed). nusku-arch's two `icon` swaps don't apply here:
-  # spotify-launcher isn't in nixpkgs and nixpkgs' yazi ships no desktop entry.
+  # (harmless when the app isn't installed). Of nusku-arch's two `icon` swaps, yazi's is in
+  # shell.nix (with the Yazi app); spotify-launcher isn't in nixpkgs.
   hidden = [
     # Developer and system tools
     "assistant" "designer" "linguist" "qdbusviewer" "qv4l2" "qvidcap" "lstopo" "xgps"
