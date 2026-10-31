@@ -42,6 +42,5 @@ where it offers one):
 - **LibreWolf** — left default.
 - **Obsidian** — every vault Obsidian knows (its own vault list) gets the Catppuccin theme
   (Mocha in dark mode) in `.obsidian/themes/Catppuccin`, refreshed on each rebuild and at each
-  login, so a new vault is themed by the next login. It is selected only where the vault has
-  no theme chosen yet: pick another theme in Obsidian and that choice sticks. (Obsidian's
-  built-in "Default" counts as no theme, so Catppuccin comes back at the next run.)
+  login, so a new vault is themed by the next login. Catppuccin is switched on once per vault
+  (where no other theme was chosen); any later choice in Obsidian, including Default, sticks.

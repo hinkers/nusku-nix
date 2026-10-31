@@ -58,13 +58,41 @@ theme() { scripts/nusku-obsidian-theme; }
     [ -f "$v/.obsidian/themes/Catppuccin/theme.css" ]
 }
 
-@test "an empty cssTheme (Obsidian's default theme) gets Catppuccin, other keys kept" {
+@test "first run on an empty cssTheme selects Catppuccin (other keys kept), and marks the vault" {
     v=$(vault Notes)
     echo '{ "cssTheme": "", "accentColor": "#ff0000" }' >"$v/.obsidian/appearance.json"
     vaults "$v"
     run theme
     [ "$status" -eq 0 ]
     [ "$(jq -c . "$v/.obsidian/appearance.json")" = '{"cssTheme":"Catppuccin","accentColor":"#ff0000"}' ]
+    [ -e "$v/.obsidian/.nusku-theme-applied" ]
+}
+
+@test "the user then picks Obsidian's Default theme: it sticks on later runs" {
+    v=$(vault Notes)
+    vaults "$v"
+    theme
+    [ "$(jq -r .cssTheme "$v/.obsidian/appearance.json")" = Catppuccin ]
+    # What Obsidian writes for its built-in Default theme.
+    echo '{ "cssTheme": "" }' >"$v/.obsidian/appearance.json"
+    run theme
+    [ "$status" -eq 0 ]
+    [ "$(jq -c . "$v/.obsidian/appearance.json")" = '{"cssTheme":""}' ]
+    # The theme files are still refreshed, for picking it again.
+    [ -f "$v/.obsidian/themes/Catppuccin/theme.css" ]
+}
+
+@test "a user theme left alone on the first run marks the vault: later runs leave it, even at Default" {
+    v=$(vault Notes)
+    echo '{ "cssTheme": "Minimal" }' >"$v/.obsidian/appearance.json"
+    vaults "$v"
+    theme
+    [ -e "$v/.obsidian/.nusku-theme-applied" ]
+    [ "$(jq -r .cssTheme "$v/.obsidian/appearance.json")" = Minimal ]
+    echo '{ "cssTheme": "" }' >"$v/.obsidian/appearance.json"
+    run theme
+    [ "$status" -eq 0 ]
+    [ "$(jq -c . "$v/.obsidian/appearance.json")" = '{"cssTheme":""}' ]
 }
 
 @test "the theme files are refreshed on each run" {
@@ -80,6 +108,7 @@ theme() { scripts/nusku-obsidian-theme; }
     [ ! -e "$v/.obsidian/themes/Catppuccin/extra.css" ]
     # No leftovers from the swap.
     [ "$(ls -A "$v/.obsidian/themes")" = Catppuccin ]
+    [ "$(ls -A "$v/.obsidian" | tr '\n' ' ')" = ".nusku-theme-applied appearance.json themes " ]
 }
 
 @test "no obsidian.json (Obsidian never started): exit 0, nothing written" {

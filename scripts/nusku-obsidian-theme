@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # nusku-obsidian-theme: put the Catppuccin theme in every Obsidian vault and select it where the
-# vault has no theme chosen yet. A theme the user picked in Obsidian is never replaced.
+# vault has no theme chosen yet, once per vault: after that, the choice in Obsidian (Default
+# included) is the user's and is never replaced.
 # Run on each rebuild (Home Manager activation) and at each login (Hyprland autostart);
 # modules/home/browsers.nix. NUSKU_OBSIDIAN_THEME is the theme directory (manifest.json +
 # theme.css; catppuccin/nix's Obsidian theme in the Nix store).
@@ -8,7 +9,8 @@
 # Vaults come from Obsidian's own list: <config>/obsidian/obsidian.json, { "vaults": { "<id>":
 # { "path": "/home/me/Notes", ... } } }. For each vault that exists:
 #   <vault>/.obsidian/themes/<name>/   a fresh, writable copy of the theme (replaced each run)
-#   <vault>/.obsidian/appearance.json  cssTheme = <name>, only if cssTheme is missing or empty
+#   <vault>/.obsidian/appearance.json  the first time only: cssTheme = <name> if it is missing
+#                                      or empty; then .obsidian/.nusku-theme-applied is written
 # A vault that can't be done (e.g. appearance.json isn't a JSON object) is skipped with a
 # message and left as it was; the others still are. Exit status 1 if any vault was skipped.
 set -uo pipefail
@@ -33,36 +35,44 @@ fi
 
 # theme_vault VAULT: theme one vault; on failure leave no partial files behind.
 theme_vault() {
-    local dir="$1/.obsidian" appearance new tmp
+    local dir="$1/.obsidian" appearance marker first=0 json="" new tmp
     appearance="$dir/appearance.json"
+    marker="$dir/.nusku-theme-applied"
 
-    # The new appearance.json first: if it can't be made, nothing is touched.
-    mkdir -p "$dir" || return 1
-    new=$(mktemp "$dir/.appearance.json.XXXXXX") || return 1
-    if ! { if [ -s "$appearance" ]; then cat "$appearance"; else echo '{}'; fi; } |
-        jq --arg name "$name" '
-            if type != "object" then error("not a JSON object")
-            elif (.cssTheme // "") == "" then .cssTheme = $name
-            else . end' >"$new" 2>/dev/null; then
-        rm -f "$new"
-        echo "$me: $appearance is not a JSON object; skipped $1" >&2
-        return 1
+    # The first time only: decide on appearance.json before touching anything. `json` is the
+    # new file, or empty when the vault already has a theme of its own (left alone).
+    if [ ! -e "$marker" ]; then
+        first=1
+        if ! json=$({ if [ -s "$appearance" ]; then cat "$appearance"; else echo '{}'; fi; } |
+            jq --arg name "$name" '
+                if type != "object" then error("not a JSON object")
+                elif (.cssTheme // "") == "" then .cssTheme = $name
+                else empty end' 2>/dev/null); then
+            echo "$me: $appearance is not a JSON object; skipped $1" >&2
+            return 1
+        fi
     fi
 
-    # The theme: copied next to the old one, then swapped in.
-    mkdir -p "$dir/themes" || { rm -f "$new"; return 1; }
-    tmp=$(mktemp -d "$dir/themes/.$name.XXXXXX") || { rm -f "$new"; return 1; }
+    # The theme, every run: copied next to the old one, then swapped in.
+    mkdir -p "$dir/themes" || return 1
+    tmp=$(mktemp -d "$dir/themes/.$name.XXXXXX") || return 1
     if ! cp -R "$theme/." "$tmp/" || ! chmod -R u+w "$tmp" || ! chmod 755 "$tmp" ||
         ! rm -rf "${dir:?}/themes/$name" || ! mv "$tmp" "$dir/themes/$name"; then
-        rm -rf "$tmp" "$new"
+        rm -rf "$tmp"
         echo "$me: couldn't copy the theme into $1; skipped" >&2
         return 1
     fi
 
-    if ! chmod 644 "$new" || ! mv "$new" "$appearance"; then
-        rm -f "$new"
-        return 1
+    [ "$first" -eq 1 ] || return 0
+    if [ -n "$json" ]; then
+        new=$(mktemp "$dir/.appearance.json.XXXXXX") || return 1
+        if ! printf '%s\n' "$json" >"$new" || ! chmod 644 "$new" || ! mv "$new" "$appearance"; then
+            rm -f "$new"
+            return 1
+        fi
     fi
+    # From now on the vault's theme is the user's choice in Obsidian, Default included.
+    : >"$marker"
 }
 
 status=0
