@@ -8,6 +8,8 @@
     ./theme.nix
     ./hyprland.nix
     ./panels.nix
+    ./menus.nix
+    ./shell.nix
   ];
 
   home.username = osConfig.nusku.user;

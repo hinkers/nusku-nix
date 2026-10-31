@@ -4,7 +4,7 @@
 #   bash test/run-unit.sh            shellcheck every shell script, then every test/unit/*.bats
 #   bash test/run-unit.sh <name>     shellcheck, then only test/unit/<name>.bats
 #
-# Builds test/Dockerfile as the image nusku-nix-test (bats, shellcheck, jq, python3) and mounts
+# Builds test/Dockerfile as the image nusku-nix-test (bats, shellcheck, jq, python3, git, neovim) and mounts
 # the repo at /nusku. Tests run the scripts straight from scripts/ with stub commands
 # (rofi, nmcli, bluetoothctl, ...) put first on PATH; the Nix-packaged versions are the same
 # files with their runtime tools on PATH (lib/scripts.nix).

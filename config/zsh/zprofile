@@ -1,0 +1,4 @@
+# Nusku - login shell: Home Manager's session variables (XDG dirs, ...). The nusku-* scripts
+# are in the user's Nix profile, already on PATH (nusku-arch added its bin directory here).
+[[ -r "/etc/profiles/per-user/$USER/etc/profile.d/hm-session-vars.sh" ]] &&
+    source "/etc/profiles/per-user/$USER/etc/profile.d/hm-session-vars.sh"

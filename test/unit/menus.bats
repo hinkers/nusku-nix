@@ -1,6 +1,6 @@
-# rofi pickers behind the quick-settings split buttons (and the bar's right-click), with stub
-# rofi / nmcli / bluetoothctl / notify-send. Ported from nusku-arch test/unit/menus.bats; the
-# power and keybind menus' tests come with those menus.
+# rofi menus (power, keybinds, clipboard, the quick-settings pickers) and nusku-browser, with
+# stub rofi / nmcli / bluetoothctl / hyprctl / notify-send / ... first on PATH. Ported from
+# nusku-arch test/unit/menus.bats (the clipboard menu and nusku-browser had no tests there).
 
 setup() {
     mkdir -p "$BATS_TEST_TMPDIR/bin"
@@ -132,4 +132,234 @@ STUB
     run scripts/nusku-menu-bluetooth
     grep -qx 'bluetoothctl pair BB:BB:BB:BB:BB:03' "$CALLS"
     grep -qx 'bluetoothctl trust BB:BB:BB:BB:BB:03' "$CALLS"
+}
+
+# --- nusku-menu-power --------------------------------------------------------------------
+
+session_stubs() {
+    export HYPR_ARGS="$BATS_TEST_TMPDIR/hypr-args"
+    : >"$HYPR_ARGS"
+    printf '#!/usr/bin/env bash\necho "$*" >>"$HYPR_ARGS"\n' >"$BATS_TEST_TMPDIR/bin/hyprctl"
+    printf '#!/usr/bin/env bash\necho "systemctl $*" >>"$CALLS"\n' >"$BATS_TEST_TMPDIR/bin/systemctl"
+    printf '#!/usr/bin/env bash\necho "hyprlock" >>"$CALLS"\n' >"$BATS_TEST_TMPDIR/bin/hyprlock"
+    chmod +x "$BATS_TEST_TMPDIR/bin/hyprctl" "$BATS_TEST_TMPDIR/bin/systemctl" "$BATS_TEST_TMPDIR/bin/hyprlock"
+}
+
+@test "power menu sizes the list with -theme-str, not the removed -lines option" {
+    session_stubs
+    run scripts/nusku-menu-power
+    [ "$status" -eq 0 ]
+    [ "$(grep -c -- '-lines' "$ROFI_ARGS")" -eq 0 ]
+    grep -qF 'listview { lines: 5; }' "$ROFI_ARGS"
+    grep -qF -- '-theme nusku' "$ROFI_ARGS"
+    [ "$(cat "$ROFI_ARGS.stdin")" = "$(printf 'Lock\nLogout\nSuspend\nReboot\nShutdown')" ]
+    [ ! -s "$CALLS" ]
+}
+
+@test "power menu confirm dialog uses two lines; Yes reboots" {
+    session_stubs
+    picks Reboot Yes
+    run scripts/nusku-menu-power
+    [ "$status" -eq 0 ]
+    [ "$(grep -c -- '-lines' "$ROFI_ARGS")" -eq 0 ]
+    grep -qF 'listview { lines: 2; }' "$ROFI_ARGS"
+    grep -qF -- '-p Reboot?' "$ROFI_ARGS"
+    [ "$(cat "$CALLS")" = "systemctl reboot" ]
+}
+
+@test "power menu: No or Esc at the confirm does nothing" {
+    session_stubs
+    picks Shutdown No
+    run scripts/nusku-menu-power
+    [ "$status" -eq 0 ]
+    picks Shutdown
+    run scripts/nusku-menu-power
+    [ "$status" -eq 0 ]
+    [ ! -s "$CALLS" ]
+}
+
+@test "power menu: lock, logout and suspend need no confirm" {
+    session_stubs
+    picks Lock
+    run scripts/nusku-menu-power
+    picks Logout
+    run scripts/nusku-menu-power
+    picks Suspend
+    run scripts/nusku-menu-power
+    [ "$(cat "$CALLS")" = "$(printf 'hyprlock\nsystemctl suspend')" ]
+    [ "$(cat "$HYPR_ARGS")" = 'dispatch hl.dsp.exit()' ]
+    [ "$(grep -c 'lines: 2' "$ROFI_ARGS")" -eq 0 ]
+}
+
+# --- nusku-menu-keybinds -----------------------------------------------------------------
+
+kb_setup() {
+    session_stubs
+    export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
+    mkdir -p "$XDG_RUNTIME_DIR/nusku"
+    {
+        printf 'bind\t\tPrint\tScreenshot a region\t1\thl.dsp.exec_cmd("hyprshot -m region -o ~/Pictures/Screenshots")\n'
+        printf 'bind\t\tSUPER + mouse:272\tDrag to move window\t0\thl.dsp.window.drag()\n'
+        for i in 1 2 3; do
+            printf 'bind\tws-go\tSUPER + %s\t%s\t1\thl.dsp.focus({ workspace = %s })\n' "$i" "$i" "$i"
+        done
+        printf 'group\tws-go\tSUPER + 1…0\tGo to workspace\t1\tWorkspace\n'
+        printf 'bind\t\tSUPER + Q\tClose window\t1\thl.dsp.window.close()\n'
+        printf 'bind\t\tSUPER + slash\tSearch keybinds\t1\thl.dsp.exec_cmd("x")\n'
+        printf 'bind\t\tXF86AudioMute\tMute\t1\thl.dsp.exec_cmd("m")\n'
+    } >"$XDG_RUNTIME_DIR/nusku/keybinds.tsv"
+}
+
+@test "keybind menu lists description and keys" {
+    kb_setup
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    grep -E 'Screenshot a region +Print' "$ROFI_ARGS.stdin"
+    grep -E 'Search keybinds +SUPER \+ /$' "$ROFI_ARGS.stdin"
+    grep -E 'Drag to move window +SUPER \+ Left drag$' "$ROFI_ARGS.stdin"
+    grep -E 'Mute +Mute key$' "$ROFI_ARGS.stdin"
+    grep -qE 'Close window {4,}SUPER [+] Q' "$ROFI_ARGS.stdin"
+    grep -qF -- '-p Keybinds' "$ROFI_ARGS"
+    grep -qF -- '-format i' "$ROFI_ARGS"
+    grep -qF -- '-theme nusku' "$ROFI_ARGS"
+}
+
+@test "keybind menu runs the picked bind" {
+    kb_setup
+    picks 0
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    [ "$(cat "$HYPR_ARGS")" = 'dispatch hl.dsp.exec_cmd("hyprshot -m region -o ~/Pictures/Screenshots")' ]
+}
+
+@test "keybind menu does not run a mouse bind" {
+    kb_setup
+    picks 1
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    [ ! -s "$HYPR_ARGS" ]
+}
+
+@test "keybind menu collapses workspace binds" {
+    kb_setup
+    picks 2 2
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    [ "$(grep -c 'Go to workspace' "$ROFI_ARGS.stdin")" -eq 1 ]
+    [ "$(wc -l <"$ROFI_ARGS.stdin")" -ge 4 ]
+    [ "$(cat "$HYPR_ARGS")" = 'dispatch hl.dsp.focus({ workspace = 3 })' ]
+    grep -qF -- '-p Workspace' "$ROFI_ARGS"
+}
+
+@test "keybind menu Esc runs nothing" {
+    kb_setup
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    [ ! -s "$HYPR_ARGS" ]
+}
+
+@test "keybind menu without a manifest says so" {
+    kb_setup
+    rm "$XDG_RUNTIME_DIR/nusku/keybinds.tsv"
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    grep -qF 'Keybind list not ready; reload Hyprland' "$NOTIFY_ARGS"
+    [ ! -s "$ROFI_ARGS" ]
+}
+
+# --- nusku-menu-clipboard ----------------------------------------------------------------
+
+clip_setup() {
+    cat >"$BATS_TEST_TMPDIR/bin/cliphist" <<'STUB'
+#!/usr/bin/env bash
+echo "cliphist $*" >>"$CALLS"
+case "$1" in
+    list) printf '1\tfirst\n2\tsecond line\n' ;;
+    decode) IFS=$'\t' read -r id text; printf 'decoded %s: %s' "$id" "$text" ;;
+esac
+STUB
+    printf '#!/usr/bin/env bash\ncat >"$CALLS.copied"\n' >"$BATS_TEST_TMPDIR/bin/wl-copy"
+    # rofi stub for a text pick (the entry contains a tab, which the queue stub would split)
+    cat >"$BATS_TEST_TMPDIR/bin/rofi" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$ROFI_ARGS"
+cat >>"$ROFI_ARGS.stdin"
+[ -n "${CLIP_PICK:-}" ] || exit 1
+printf '%s\n' "$CLIP_PICK"
+STUB
+    chmod +x "$BATS_TEST_TMPDIR/bin/cliphist" "$BATS_TEST_TMPDIR/bin/wl-copy" "$BATS_TEST_TMPDIR/bin/rofi"
+}
+
+@test "clipboard menu lists the history and copies the picked entry back" {
+    clip_setup
+    CLIP_PICK=$'2\tsecond line' run scripts/nusku-menu-clipboard
+    [ "$status" -eq 0 ]
+    [ "$(cat "$ROFI_ARGS.stdin")" = "$(printf '1\tfirst\n2\tsecond line')" ]
+    grep -qF -- '-p Clipboard' "$ROFI_ARGS"
+    grep -qF -- '-theme nusku' "$ROFI_ARGS"
+    [ "$(cat "$CALLS.copied")" = "decoded 2: second line" ]
+}
+
+@test "clipboard menu Esc copies nothing" {
+    clip_setup
+    run scripts/nusku-menu-clipboard
+    [ "$status" -eq 0 ]
+    [ ! -e "$CALLS.copied" ]
+    [ "$(cat "$CALLS")" = "cliphist list" ]
+}
+
+# --- nusku-browser (SUPER + B) -----------------------------------------------------------
+
+# browser_setup DEFAULT LAUNCHABLE: xdg-mime answers DEFAULT for https; gtk-launch succeeds only
+# for the desktop ids in LAUNCHABLE (space separated).
+browser_setup() {
+    export DEFAULT_BROWSER="$1" LAUNCHABLE="$2"
+    cat >"$BATS_TEST_TMPDIR/bin/xdg-mime" <<'STUB'
+#!/usr/bin/env bash
+echo "xdg-mime $*" >>"$CALLS"
+[ -z "$DEFAULT_BROWSER" ] || echo "$DEFAULT_BROWSER"
+STUB
+    cat >"$BATS_TEST_TMPDIR/bin/gtk-launch" <<'STUB'
+#!/usr/bin/env bash
+case " $LAUNCHABLE " in
+    *" $1 "*) echo "gtk-launch $*" >>"$CALLS"; exit 0 ;;
+esac
+echo "gtk-launch: no such application $1" >&2
+exit 1
+STUB
+    chmod +x "$BATS_TEST_TMPDIR/bin/xdg-mime" "$BATS_TEST_TMPDIR/bin/gtk-launch"
+}
+
+@test "nusku-browser opens the default browser (https handler) with the URL" {
+    browser_setup brave-browser.desktop "brave-browser firefox"
+    run scripts/nusku-browser https://nixos.org
+    [ "$status" -eq 0 ]
+    grep -qx 'xdg-mime query default x-scheme-handler/https' "$CALLS"
+    [ "$(grep gtk-launch "$CALLS")" = "gtk-launch brave-browser https://nixos.org" ]
+    [ ! -s "$NOTIFY_ARGS" ]
+}
+
+@test "nusku-browser falls back to an installed browser when the default is gone" {
+    browser_setup gone.desktop "chromium-browser"
+    run scripts/nusku-browser
+    [ "$status" -eq 0 ]
+    [ "$(grep gtk-launch "$CALLS")" = "gtk-launch chromium-browser" ]
+}
+
+@test "nusku-browser knows the NixOS desktop ids of the catalogue's browsers" {
+    for id in firefox chromium-browser brave-browser librewolf; do
+        : >"$CALLS"
+        browser_setup "" "$id"
+        run scripts/nusku-browser
+        [ "$status" -eq 0 ]
+        [ "$(grep gtk-launch "$CALLS")" = "gtk-launch $id" ]
+    done
+}
+
+@test "nusku-browser without a browser warns and fails" {
+    browser_setup "" ""
+    run scripts/nusku-browser
+    [ "$status" -eq 1 ]
+    grep -qF 'No web browser' "$NOTIFY_ARGS"
+    grep -qF -- '--apps' "$NOTIFY_ARGS"
 }
