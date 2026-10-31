@@ -1,5 +1,5 @@
 # GPU drivers, NVIDIA (open or the 580 legacy branch), PRIME offload, Hyper-V guest support, and
-# the Hyprland GPU/monitor Lua that modules/home writes to ~/.config/hypr/gpu.lua.
+# the Hyprland GPU/monitor Lua that modules/home writes to ~/.config/nusku/gpu.lua.
 # Ported from nusku-arch lib/gpu.sh (gpu_hypr_lua, gpu_panel_lua, gpu_vm_services).
 { config, lib, pkgs, ... }:
 let
@@ -45,7 +45,7 @@ in
     hyprGpuLua = mkOption {
       type = types.lines;
       internal = true;
-      description = "Contents of ~/.config/hypr/gpu.lua (GPU env vars, monitor rules).";
+      description = "Contents of ~/.config/nusku/gpu.lua (GPU env vars, monitor rules).";
     };
     hyprMonitorLua = mkOption {
       type = types.lines;

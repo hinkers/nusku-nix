@@ -50,7 +50,15 @@ in
     && full.catppuccin.sddm.background == "/var/lib/nusku/sddm-background/background";
   "sddm: background dir writable by the user, seeded with a default" =
     builtins.any (r: has "/var/lib/nusku/sddm-background 0755 nathan" r) full.systemd.tmpfiles.rules
-    && has "sddm-background" full.system.activationScripts.nusku-sddm-background.text;
+    && has "if [ ! -e /var/lib/nusku/sddm-background/background ]; then"
+      full.system.activationScripts.nusku-sddm-background.text;
+  "catppuccin GRUB theme on a grub host (deliberate)" =
+    let g = hosts.vm-grub.config; in
+    g.catppuccin.grub.enable && g.boot.loader.grub.theme != null
+    && has "catppuccin" (toString g.boot.loader.grub.theme);
+  "catppuccin TTY colours (deliberate)" =
+    let m = hosts.vm-min.config; in
+    m.catppuccin.tty.enable && builtins.length m.console.colors == 16;
   "catppuccin mocha + accent on NixOS and HM" =
     full.catppuccin.enable && full.catppuccin.flavor == "mocha" && full.catppuccin.accent == "blue"
     && hm.catppuccin.enable && hm.catppuccin.flavor == "mocha" && hm.catppuccin.accent == "blue"

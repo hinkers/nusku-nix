@@ -29,6 +29,10 @@ in
         font = "JetBrainsMono Nerd Font";
         background = "${sddmBgDir}/background";
       };
+      # Deliberately on (spec: catppuccin/nix wherever it covers something), although nusku-arch
+      # left them plain: the GRUB menu (grub hosts only) and the console colours.
+      grub.enable = true;
+      tty.enable = true;
     };
 
     # Hyprland from the NixOS module: session file, portal, polkit, dconf. No HM hyprland module,
@@ -54,7 +58,10 @@ in
 
     # The greeter background directory belongs to the user, so nusku-wallpaper can write it
     # (nusku-arch sddm_prepare_background_dir). Seeded with the default wallpaper until the
-    # first `nusku-wallpaper set`.
+    # first `nusku-wallpaper set`. Both set up the directory on purpose: tmpfiles keeps its owner
+    # and mode on every boot, while the activation script runs at `nixos-rebuild switch` and at
+    # install time, so the directory and the default background exist before the first boot
+    # (SDDM would otherwise show no background on that boot).
     systemd.tmpfiles.rules = [ "d ${sddmBgDir} 0755 ${cfg.user} users -" ];
     system.activationScripts.nusku-sddm-background = {
       deps = [ "users" ];
