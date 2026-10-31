@@ -60,7 +60,8 @@ in
   "every catalogue app is provided in exactly one place" =
     builtins.all (id: builtins.length (places id) == 1) ids;
   "apps.nix provides nothing the catalogue lacks" = builtins.all (id: builtins.elem id ids) provided;
-  "handled in Home Manager: exactly pokemon and yazi" = src.home == [ "pokemon" "yazi" ];
+  "handled in Home Manager: exactly pokemon, yazi and obsidian" =
+    src.home == [ "pokemon" "yazi" "obsidian" ];
   "each Home Manager app really adds to the user's packages" =
     builtins.all (id: homeNames (pick [ id ]) != homeNames none) src.home;
   "every package in packagesFor evaluates" =
@@ -76,13 +77,14 @@ in
     && min.services.snapper.configs == { };
   "picked apps' packages installed (renamed nixpkgs attributes)" =
     hasAll [ "libreoffice" "kdenlive" "bitwarden-desktop" "parsec-bin" "moonlight-qt" "wine-wow64"
-      "gnome-calendar" "gnome-online-accounts-gtk" "photocraft" "gridcraft" "obsidian" ] (sysNames all);
+      "gnome-calendar" "gnome-online-accounts-gtk" "photocraft" "gridcraft" ] (sysNames all);
   "browsers go to the user's profile, not the system" =
     hasAll [ "firefox" "chromium" "brave" "librewolf" ] (homeNames all)
     && hasNone [ "firefox" "chromium" "brave" "librewolf" ] (sysNames all)
     && builtins.elem "firefox" (homeNames full) && !(builtins.elem "chromium" (homeNames full));
   "unpicked apps are not installed" =
-    hasNone [ "libreoffice" "spotify" ] (sysNames full) && builtins.elem "obsidian" (sysNames full);
+    hasNone [ "libreoffice" "spotify" ] (sysNames full) && builtins.elem "obsidian" (homeNames full)
+    && !(builtins.elem "obsidian" (homeNames none));
 
   # --- system-level apps ---------------------------------------------------------------------
   "docker: service on, user in the docker group" =

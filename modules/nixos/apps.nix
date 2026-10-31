@@ -4,7 +4,7 @@
 #                  the rest to environment.systemPackages.
 #   systemApps     NixOS settings for apps that need more than a package: services, groups,
 #                  firewall ports, file associations (nusku-arch's app hooks, declared).
-#   handledInHome  Home Manager does all of it (modules/home/shell.nix).
+#   handledInHome  Home Manager does all of it (modules/home/shell.nix, browsers.nix).
 # Unfree apps (Discord, Obsidian, Spotify, Steam, VS Code, Claude Code, Parsec) rely on
 # nixpkgs.config.allowUnfree (base.nix).
 { config, lib, pkgs, ... }:
@@ -31,7 +31,6 @@ let
     brave = [ brave ];
     librewolf = [ librewolf ];
     discord = [ discord ];
-    obsidian = [ obsidian ];
     libreoffice = [ libreoffice ];
     thunderbird = [ thunderbird ];
     # Online Accounts and evolution-data-server run on every host (base.nix) for the clock's
@@ -147,6 +146,7 @@ let
   handledInHome = [
     "pokemon" # krabby (shell.nix)
     "yazi" # programs.yazi with preview helpers + launcher entry (shell.nix)
+    "obsidian" # programs.obsidian + catppuccin/nix theme (browsers.nix)
   ];
 
   # Links open in the first picked browser (catalogue order) unless the user's own
@@ -166,7 +166,7 @@ in
     readOnly = true;
     description = ''
       How each catalogue app is provided: { packages = { id = [ package ]; }; system = [ id ];
-      home = [ id ]; }. modules/home/browsers.nix installs the browsers' packages from it.
+      home = [ id ]; }. modules/home/browsers.nix takes the browsers' packages from it.
     '';
   };
 
