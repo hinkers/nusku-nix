@@ -26,3 +26,29 @@ load_nix() {
     [[ "$output" == *"paths={}"* ]]
     [[ "$output" == *"$XDG_CONFIG_HOME/nusku/nvim-nix.lua is missing"* ]]
 }
+
+# blink_spec: the saghen/blink.cmp spec lua/plugins/nusku-nix.lua returns, one line.
+blink_spec() {
+    run nvim --headless -u NONE \
+        "+lua package.path = 'config/nvim/lua/?.lua;' .. package.path
+         local found = 'none'
+         for _, s in ipairs(dofile('config/nvim/lua/plugins/nusku-nix.lua')) do
+           if s[1] == 'saghen/blink.cmp' then
+             local opts = type(s.opts) == 'function' and s.opts(nil, {}) or s.opts
+             found = ('dir=%s build=%s download=%s'):format(tostring(s.dir), tostring(s.build),
+               tostring(vim.tbl_get(opts or {}, 'fuzzy', 'prebuilt_binaries', 'download')))
+           end
+         end
+         io.stdout:write('blink ' .. found .. '\n')" +qa
+}
+
+@test "blink.cmp comes from the Nix store (its fuzzy library built by nixpkgs) and never downloads one" {
+    echo 'return { blink = "/nix/store/x-vimplugin-blink.cmp-1.10.2" }' >"$XDG_CONFIG_HOME/nusku/nvim-nix.lua"
+    blink_spec
+    [[ "$output" == *"blink dir=/nix/store/x-vimplugin-blink.cmp-1.10.2 build=false download=false"* ]]
+}
+
+@test "blink.cmp without a Nix path (nvim-nix.lua missing): still never downloads a binary" {
+    blink_spec
+    [[ "$output" == *"blink dir=nil build=false download=false"* ]]
+}

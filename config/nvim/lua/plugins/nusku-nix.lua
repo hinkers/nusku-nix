@@ -9,11 +9,21 @@
 -- nvim-treesitter (a different revision's queries can break on these parsers), nothing is
 -- installed or compiled at runtime (:TSUpdate / :TSInstall can't write to the Nix store), and
 -- textobjects (queries on the same parsers) comes from the same nixpkgs.
+--
+-- blink.cmp: nixpkgs' blink.cmp, whose Rust fuzzy-matching library Nix builds into the plugin's
+-- target/release. Cloned by lazy.nvim instead, blink.cmp downloads a prebuilt library from
+-- GitHub; downloads stay off in any case (without the library it falls back to its Lua matcher).
 local nix = require("nusku.nix")
 
 local specs = {
   { "mason-org/mason.nvim", enabled = false },
   { "mason-org/mason-lspconfig.nvim", enabled = false },
+  {
+    "saghen/blink.cmp",
+    dir = nix.blink,
+    build = false,
+    opts = { fuzzy = { prebuilt_binaries = { download = false } } },
+  },
 }
 
 if nix.treesitter and nix.parsers then

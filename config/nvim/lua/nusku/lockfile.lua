@@ -12,7 +12,7 @@
 -- old stamp, so the next start reseeds and tries again. A rebuild that changes anything else
 -- leaves the copy alone, so :Lazy update keeps writing the user's copy between new pins.
 -- To bump Nusku's pins, regenerate config/nvim/lazy-lock.json with every language enabled
--- (Mason and nvim-treesitter are not in it: Mason is off and treesitter comes from Nix).
+-- (Mason, nvim-treesitter and blink.cmp are not in it: Mason is off, the others come from Nix).
 local M = {}
 
 M.repo = vim.fn.stdpath("config") .. "/lazy-lock.json"
@@ -70,7 +70,8 @@ function M.seed(force)
 end
 
 -- The plugins a restore left broken, sorted by name. Local plugins (a `dir` outside lazy.nvim's
--- root: nvim-treesitter and its textobjects come from the Nix store, lua/plugins/nusku-nix.lua)
+-- root: nvim-treesitter, its textobjects and blink.cmp come from the Nix store,
+-- lua/plugins/nusku-nix.lua)
 -- are not lazy.nvim's to install or move, and its tasks on them can fail harmlessly (`helptags`
 -- can't write into the read-only store), so they count only when their directory is missing.
 ---@param need_installed? boolean also count a lazy-managed plugin that isn't installed (the sync)

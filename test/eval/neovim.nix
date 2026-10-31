@@ -95,6 +95,16 @@ in
     && has ''textobjects = "${noCtx pkgs.vimPlugins.nvim-treesitter-textobjects}"'' t
     && has ''parsers = "/nix/store/'' t && has "nvim-treesitter-grammars" t
     && !(has "lombok" t);
+  "nvim: blink.cmp from nixpkgs (its fuzzy library built by Nix), never downloaded" =
+    let blink = pkgs.vimPlugins.blink-cmp; in
+    has ''blink = "${noCtx blink}"'' (noCtx (cfgText py "nusku/nvim-nix.lua"))
+    && has "dir = nix.blink" nuskuNix && has "download = false" nuskuNix
+    && !(has "blink.cmp" (read ../../config/nvim/lazy-lock.json));
+  # LazyVim's blink spec (version = "*") is written for blink.cmp 1.x; the pinned lazy-lock had
+  # v1.10.2 when blink moved to Nix.
+  "nvim: nixpkgs' blink.cmp is a 1.x release (what the pinned LazyVim configures)" =
+    let v = pkgs.vimPlugins.blink-cmp.version; in
+    lib.versionAtLeast v "1.10" && lib.versionOlder v "2";
   "nvim: java picked: Lombok jar path for jdtls" =
     has "lombok = \"${noCtx pkgs.lombok}/share/java/lombok.jar\""
       (noCtx (cfgText (pick [ "neovim" ] [ "java" ]) "nusku/nvim-nix.lua"));

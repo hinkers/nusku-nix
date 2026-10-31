@@ -7,8 +7,9 @@
 #    writable copy of that file (lua/nusku/lockfile.lua).
 #  - ~/.config/nusku/nvim-languages.lua: the picked languages (catalogue order); LazyVim imports
 #    their extras (lua/nusku/languages.lua).
-#  - ~/.config/nusku/nvim-nix.lua: store paths for nvim-treesitter, its grammars and Lombok
-#    (lua/nusku/nix.lua, lua/plugins/nusku-nix.lua).
+#  - ~/.config/nusku/nvim-nix.lua: store paths for nvim-treesitter, its grammars, blink.cmp (with
+#    its fuzzy-matching library built by nixpkgs, which blink.cmp would otherwise download from
+#    GitHub) and Lombok (lua/nusku/nix.lua, lua/plugins/nusku-nix.lua).
 #  - the language servers, formatters and linters of the picked languages, plus LazyVim's own
 #    (lib/langs.nix), in the user's profile: on nusku-arch Mason installed them for Neovim only.
 #  - the accent file (~/.config/nusku/theme/nvim-accent.lua) is rendered with the others in
@@ -52,6 +53,7 @@ in
       "  treesitter = \"${ts}\","
       "  textobjects = \"${pkgs.vimPlugins.nvim-treesitter-textobjects}\","
       "  parsers = \"${grammars}\","
+      "  blink = \"${pkgs.vimPlugins.blink-cmp}\","
     ] ++ lib.optional (langPicked "java") "  lombok = \"${pkgs.lombok}/share/java/lombok.jar\","
     ++ [ "}" ]);
   };

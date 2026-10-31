@@ -98,9 +98,11 @@ holds the checkout's path and isn't part of the repo). If you move the checkout,
 file).
 
 **Neovim's plugins update separately.** LazyVim and the other Neovim plugins are pinned by
-`config/nvim/lazy-lock.json`, but nvim-treesitter and its parsers come from nixpkgs, so they move
-with `flake.lock`. When you bump one, bump the other: after `nix flake update`, regenerate
-`lazy-lock.json` with every language enabled (Mason and nvim-treesitter stay out of it) and check
+`config/nvim/lazy-lock.json`, but nvim-treesitter with its parsers and blink.cmp (with its
+compiled fuzzy matcher, which it would otherwise download from GitHub) come from nixpkgs, so they
+move with `flake.lock`. When you bump one, bump the other: after `nix flake update`, regenerate
+`lazy-lock.json` with every language enabled (Mason, nvim-treesitter and blink.cmp stay out of
+it) and check
 that Neovim still starts cleanly. Neovim follows a new `lazy-lock.json` by itself: the first time
 it starts (with a window) after a rebuild that changed the pins, it replaces its own copy
 (`~/.local/share/nvim/lazy-lock.json`) and restores the plugins to them. If that fails (offline),

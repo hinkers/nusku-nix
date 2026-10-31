@@ -3,6 +3,7 @@
 --   treesitter   nixpkgs' nvim-treesitter (main branch)
 --   textobjects  nixpkgs' nvim-treesitter-textobjects
 --   parsers      every nixpkgs grammar (parser/*.so) with its queries, built for that nvim-treesitter
+--   blink        nixpkgs' blink.cmp, with its fuzzy-matching library (target/release) built by Nix
 --   lombok       Lombok's jar for jdtls (only when Java is picked)
 local file = (vim.env.XDG_CONFIG_HOME or (vim.env.HOME .. "/.config")) .. "/nusku/nvim-nix.lua"
 

@@ -43,8 +43,8 @@ vim.notify = function(msg, level) io.stdout:write("notify " .. level .. ": " .. 
 require("nusku.lockfile").restore()
 vim.wait(200, function() return false end)
 LUA
-    # nusku.sync with lazy.nvim stubbed: a.nvim is lazy-managed, nvim-treesitter is local (a Nix
-    # store `dir`). arg[1]: plugins whose tasks failed; arg[2]: plugins not installed / missing.
+    # nusku.sync with lazy.nvim stubbed: a.nvim is lazy-managed, nvim-treesitter and blink.cmp are
+    # local (Nix store `dir`s). arg[1]: plugins whose tasks failed; arg[2]: plugins not installed / missing.
     cat >"$BATS_TEST_TMPDIR/sync.lua" <<'LUA'
 package.path = "config/nvim/lua/?.lua;" .. package.path
 local function set(s) local t = {} for n in (s or ""):gmatch("[^,]+") do t[n] = true end return t end
@@ -52,6 +52,7 @@ local failed, absent = set(arg[1]), set(arg[2])
 package.loaded["lazy.core.config"] = { plugins = {
   ["a.nvim"] = { _ = { installed = not absent["a.nvim"] } },
   ["nvim-treesitter"] = { _ = { is_local = true, installed = not absent["nvim-treesitter"] } },
+  ["blink.cmp"] = { _ = { is_local = true, installed = not absent["blink.cmp"] } },
 } }
 package.loaded["lazy.core.plugin"] = {
   has_errors = function(p) for name, q in pairs(package.loaded["lazy.core.config"].plugins) do
@@ -206,9 +207,9 @@ restore() { run nvim --headless -l "$BATS_TEST_TMPDIR/restore.lua" "$@"; }
 
 @test "sync: Nix-provided (local) plugins are not reported missing; lazy-managed ones still are" {
     store a '{ "pins": "a" }'
-    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" nvim-treesitter ""
+    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" nvim-treesitter,blink.cmp ""
     [ "$status" -eq 0 ]
-    [[ "$output" == *"nusku.sync: 2 plugins at their lazy-lock.json revisions"* ]]
+    [[ "$output" == *"nusku.sync: 3 plugins at their lazy-lock.json revisions"* ]]
     [[ "$output" != *FAILED* ]]
     run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" "" a.nvim
     [ "$status" -eq 1 ]
@@ -219,6 +220,9 @@ restore() { run nvim --headless -l "$BATS_TEST_TMPDIR/restore.lua" "$@"; }
     run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" "" nvim-treesitter
     [ "$status" -eq 1 ]
     [[ "$output" == *"plugins not installed: nvim-treesitter"* ]]
+    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" "" blink.cmp
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"plugins not installed: blink.cmp"* ]]
 }
 
 @test "lazy.lua restores only with a UI (headless starts would race nusku.sync)" {
