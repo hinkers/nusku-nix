@@ -61,7 +61,9 @@ require("lazy").setup({
   },
 })
 
--- Nusku: a rebuild brought new pins: put the installed plugins on them (new installs use them anyway).
-if seeded == "repo" then
+-- Nusku: a rebuild brought new pins: put the installed plugins on them (new installs use them
+-- anyway). Not when headless: the installer's sync (nusku.sync) restores and stamps itself, and
+-- a headless start would only race it; the next start with a UI does it instead.
+if seeded == "repo" and #vim.api.nvim_list_uis() > 0 then
   lockfile.restore()
 end

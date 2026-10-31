@@ -98,10 +98,11 @@ in
   "nvim: java picked: Lombok jar path for jdtls" =
     has "lombok = \"${noCtx pkgs.lombok}/share/java/lombok.jar\""
       (noCtx (cfgText (pick [ "neovim" ] [ "java" ]) "nusku/nvim-nix.lua"));
-  "nvim: lazy.nvim keeps a writable lockfile copy that follows the repo file (store path stamp)" =
+  "nvim: lazy.nvim keeps a writable lockfile copy that follows the repo's pins (sha256 stamp)" =
     let l = read ../../config/nvim/lua/nusku/lockfile.lua; in
-    has "fs_chmod" l && has "fs_realpath" l && has "restore" l
-    && has "lockfile.restore()" (read ../../config/nvim/lua/config/lazy.lua);
+    has "fs_chmod" l && has "vim.fn.sha256" l && !(has "fs_realpath" l)
+    && has "lockfile.restore()" (read ../../config/nvim/lua/config/lazy.lua)
+    && has "lockfile\").commit()" (read ../../config/nvim/lua/nusku/sync.lua);
   "nvim: a missing nvim-nix.lua is reported, not silently replaced" =
     has "vim.notify" (read ../../config/nvim/lua/nusku/nix.lua);
   "nvim: accent file rendered from the palette" =

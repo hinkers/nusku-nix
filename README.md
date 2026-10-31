@@ -64,6 +64,8 @@ until it succeeds; `systemctl --user status nusku-rustup`).
   and the other Neovim plugins are pinned by `config/nvim/lazy-lock.json`. Bump them together:
   after `nix flake update`, regenerate `lazy-lock.json` with every language enabled (Mason and
   nvim-treesitter stay out of it) and check Neovim still starts cleanly.
-- Neovim follows a new `lazy-lock.json` by itself: on the first start after the rebuild it
-  replaces its own copy (`~/.local/share/nvim/lazy-lock.json`) and restores the plugins to the
-  new pins. `:Lazy update` between rebuilds only changes that copy until the next new pins.
+- Neovim follows a new `lazy-lock.json` by itself: on the first start (with a UI) after a rebuild
+  that changed the pins, it replaces its own copy (`~/.local/share/nvim/lazy-lock.json`) and
+  restores the plugins to them. If the restore fails (offline), it says so and tries again at
+  every start until it succeeds. A rebuild that leaves `lazy-lock.json` as it was keeps the copy,
+  so `:Lazy update` between rebuilds sticks until the next new pins.

@@ -36,6 +36,10 @@ local function plugins()
   local names = vim.tbl_keys(require("lazy.core.config").plugins)
   table.sort(names)
   require("lazy").load({ plugins = names })
+  -- the installed plugins are on the repo's pins now (lua/nusku/lockfile.lua)
+  if not require("nusku.lockfile").commit() then
+    return "could not write " .. require("nusku.lockfile").stamp
+  end
   say(("%d plugins at their lazy-lock.json revisions"):format(#names))
 end
 
