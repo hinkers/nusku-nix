@@ -22,5 +22,6 @@
     "protonup", "wine",
     "yazi", "snapper", "remmina", "wayvnc", "gparted", "pokemon"
   ],
-  "langs": [ "python", "php", "gdscript", "js", "rust", "go", "cpp", "csharp", "java", "lua" ]
+  "langs": [ "python", "php", "gdscript", "js", "rust", "go", "cpp", "csharp", "java", "lua" ],
+  "stateVersion": "26.05"
 }

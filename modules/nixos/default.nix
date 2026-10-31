@@ -23,6 +23,7 @@
     users.${config.nusku.user} = import ../home;
   };
 
-  # The release the first Nusku hosts were installed with; never bump it on an existing host.
-  system.stateVersion = lib.mkDefault "26.05";
+  # The release NixOS was installed with (settings.json "stateVersion"); never bump it on an
+  # existing host.
+  system.stateVersion = lib.mkDefault config.nusku.stateVersion;
 }

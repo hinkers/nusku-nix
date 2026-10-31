@@ -11,7 +11,8 @@ NUSKU_ROOT="${NUSKU_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/git.sh"
 
 # The answers, one key per setting: HOSTNAME USER TIMEZONE LOCALE KEYMAP BOOT_LOADER BOOT_DEVICE
-# GPU NVIDIA PRIME_IGPU PRIME_NVIDIA PANELS (JSON) ACCENT APPS LANGS (space-separated ids).
+# GPU NVIDIA PRIME_IGPU PRIME_NVIDIA PANELS (JSON) ACCENT APPS LANGS (space-separated ids), and
+# STATE_VERSION (not asked: the release NixOS was installed with; "" leaves it out).
 if ! declare -p NUSKU_ANSWERS >/dev/null 2>&1; then
     declare -gA NUSKU_ANSWERS=()
 fi
@@ -51,7 +52,8 @@ host_load() {
         "GPU=\(.gpu)", "NVIDIA=\(.nvidia // "")",
         "PRIME_IGPU=\(.prime.intelBusId // .prime.amdgpuBusId // "")",
         "PRIME_NVIDIA=\(.prime.nvidiaBusId // "")", "PANELS=\(.panels // [] | tojson)",
-        "ACCENT=\(.accent)", "APPS=\(.apps // [] | join(" "))", "LANGS=\(.langs // [] | join(" "))"
+        "ACCENT=\(.accent)", "APPS=\(.apps // [] | join(" "))", "LANGS=\(.langs // [] | join(" "))",
+        "STATE_VERSION=\(.stateVersion // "")"
         ' "$file")" || die "Could not read $file"
     while IFS= read -r line; do
         NUSKU_ANSWERS[${line%%=*}]="${line#*=}"
@@ -63,7 +65,7 @@ host_load() {
 host_settings_json() {
     local k
     local -a args=()
-    for k in HOSTNAME USER TIMEZONE LOCALE KEYMAP BOOT_LOADER BOOT_DEVICE GPU NVIDIA PRIME_IGPU PRIME_NVIDIA ACCENT APPS LANGS; do
+    for k in HOSTNAME USER TIMEZONE LOCALE KEYMAP BOOT_LOADER BOOT_DEVICE GPU NVIDIA PRIME_IGPU PRIME_NVIDIA ACCENT APPS LANGS STATE_VERSION; do
         args+=(--arg "$k" "${NUSKU_ANSWERS[$k]:-}")
     done
     jq -n "${args[@]}" --argjson PANELS "${NUSKU_ANSWERS[PANELS]:-[]}" '
@@ -78,7 +80,7 @@ host_settings_json() {
                       nvidiaBusId: $PRIME_NVIDIA }
                   else null end),
           panels: $PANELS, accent: $ACCENT, apps: ($APPS | words), langs: ($LANGS | words)
-        }'
+        } + (if $STATE_VERSION == "" then {} else { stateVersion: $STATE_VERSION } end)'
 }
 
 # host_write NAME: write hosts/NAME/settings.json from the answers.

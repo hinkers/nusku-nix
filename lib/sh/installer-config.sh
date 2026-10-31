@@ -15,6 +15,8 @@
 #   installer_probe            NUSKU_INSTALLER_JSON from this machine ("" without configuration.nix)
 #   installer_nix              that JSON as installer.nix (nothing when there is nothing to carry)
 #   host_write_installer NAME  write hosts/NAME/installer.nix, or remove it when nothing to carry
+#   installer_state_version    the release NixOS was installed with (settings.json "stateVersion"):
+#                              system.stateVersion from the same evaluation, else nixos-version
 #
 # Sourced, not executed. Needs lib/sh/log.sh; uses nix and jq. Test hook: NUSKU_NIXOS_CONFIG
 # (default /etc/nixos/configuration.nix).
@@ -63,7 +65,8 @@ Fix $conf (check it with: sudo nixos-rebuild dry-build), then run ./install.sh a
 installer_nix() {
     local body
     body="$(jq -r '
-        def q: if type == "string" and test("^[A-Za-z0-9_./:+@=,-]+$") then "\"\(.)\""
+        del(.stateVersion)
+        | def q: if type == "string" and test("^[A-Za-z0-9_./:+@=,-]+$") then "\"\(.)\""
                else error("unexpected value in the NixOS installer settings: \(tojson)") end;
         def val: if type == "string" then q elif type == "boolean" or type == "number" then tostring
                  elif . == null then "null" else error("unexpected value: \(tojson)") end;
@@ -119,4 +122,13 @@ host_write_installer() {
     mkdir -p "$(dirname "$file")"
     printf '%s\n' "$text" >"$file"
     log_info "hosts/$1/installer.nix: the NixOS installer's boot and encryption settings"
+}
+
+installer_state_version() {
+    local v=""
+    [ -z "$NUSKU_INSTALLER_JSON" ] || v="$(jq -r '.stateVersion // ""' <<<"$NUSKU_INSTALLER_JSON")"
+    [ -n "$v" ] || v="$(nixos-version 2>/dev/null || true)"
+    v="${v:0:5}"
+    [[ "$v" =~ ^[0-9][0-9]\.[0-9][0-9]$ ]] || v=""
+    printf '%s\n' "$v"
 }

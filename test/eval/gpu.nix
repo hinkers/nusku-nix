@@ -30,10 +30,9 @@ in
     && !ha.hardware.nvidia.open;
   "hybrid: no nvidia env vars, runs on the iGPU" =
     !(has "LIBVA_DRIVER_NAME" hi.nusku.internal.hyprGpuLua) && has "prime-run" hi.nusku.internal.hyprGpuLua;
-  "panels: monitor lua has scale 1.25" =
-    has ''hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1.25 })'' hi.nusku.internal.hyprMonitorLua
-    && has "scale = 1.25" hi.nusku.internal.hyprGpuLua;
-  "no panels: no monitor lua" = amd.nusku.internal.hyprMonitorLua == "";
+  "panels: gpu.lua has the panel's monitor line with scale 1.25" =
+    has ''hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1.25 })'' hi.nusku.internal.hyprGpuLua;
+  "no panels: no monitor line" = !(has "hl.monitor" amd.nusku.internal.hyprGpuLua);
   "amd/intel: mesa with 32-bit and vaapi" =
     amd.hardware.graphics.enable && amd.hardware.graphics.enable32Bit
     && intel.hardware.graphics.enable && intel.hardware.graphics.enable32Bit

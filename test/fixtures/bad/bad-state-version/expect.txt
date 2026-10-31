@@ -1,0 +1,1 @@
+settings.json: stateVersion "latest" is not a NixOS release like 25.11

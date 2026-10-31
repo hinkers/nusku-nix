@@ -11,5 +11,6 @@
   "panels": [ { "output": "Virtual-1", "scale": 1.25 } ],
   "accent": "blue",
   "apps": [ "firefox", "obsidian" ],
-  "langs": [ "python", "php", "gdscript", "js", "rust", "go", "cpp", "csharp", "java", "lua" ]
+  "langs": [ "python", "php", "gdscript", "js", "rust", "go", "cpp", "csharp", "java", "lua" ],
+  "stateVersion": "25.11"
 }

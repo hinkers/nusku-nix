@@ -41,7 +41,8 @@ pkgs:
       tools = [ vtsls vscode-langservers-extracted ];
     };
     # lang.rust: rustaceanvim runs rust-analyzer from PATH; rust-analyzer and rustfmt are rustup
-    # components (rustup's proxies are in its package), added by modules/home/neovim.nix.
+    # components (rustup's proxies are in its package), added after login by the nusku-rustup
+    # user service (modules/home/langs.nix, scripts/nusku-rustup).
     rust = {
       runtime = [ rustup ];
       tools = [ ];

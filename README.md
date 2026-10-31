@@ -27,9 +27,16 @@ undone from the boot menu.
    Enter to change a setting, Esc to go back, and pick **Install** when it looks right.
 4. Reboot when it asks, and log in.
 
-The installer writes `hosts/<name>/` (the host name you chose), commits it and builds it. It asks
-for your sudo password once, for the switch. Push the commit (`git push`) so a reinstall can find
-it. Each run logs to `~/.local/state/nusku/install-<time>.log`.
+The installer asks for your sudo password once, at the start (before the questions; the build
+needs it to switch). It then writes `hosts/<name>/` (the host name you chose), commits it and
+builds it. Push the commit (`git push`) so a reinstall can find it. Each run logs to
+`~/.local/state/nusku/install-<time>.log`. `settings.json` also records the NixOS release you
+installed (`stateVersion`); leave it as it is.
+
+Before the build it checks your home for files where Nusku puts its own, such as an older
+`~/.config/hypr`, `~/.config/nvim` or `~/.zshrc` (from nusku-arch, or your own dotfiles). Home
+Manager won't replace files it didn't make, so it lists them and offers to move them into
+`~/nusku-backup-<time>/` (same layout) before building, or to stop. Nothing is deleted.
 
 **From the first build on, the machine is built from this repo, not from
 `/etc/nixos/configuration.nix`.** The installer carries over what that file needs for the machine
@@ -162,7 +169,8 @@ These get Catppuccin (Mocha) when they are picked:
   theme is a Firefox Color setting in your accent. Firefox Color itself is a fixed copy from the
   Nix store, installed by policy, so no network is needed. An existing `~/.mozilla/firefox` is
   not touched; if you have one, Firefox may keep starting from it, unthemed. If you already have a
-  `~/.config/mozilla/firefox/profiles.ini` that Home Manager didn't make, Home Manager won't
+  `~/.config/mozilla/firefox/profiles.ini` that Home Manager didn't make, the installer offers to
+  move it aside (see Install). `nusku-rebuild` doesn't check first: there, Home Manager won't
   replace it, so your desktop configs aren't updated and the rebuild reports an error: move it
   away (for example `mv ~/.config/mozilla/firefox ~/firefox-old`) and run `nusku-rebuild`
   again.

@@ -79,5 +79,5 @@ in
   # (Google, Nextcloud) feed evolution-data-server, which the calendar reads events from.
   services.gnome.gnome-online-accounts.enable = true;
   services.gnome.evolution-data-server.enable = true;
-  services.avahi.enable = lib.mkDefault false; # an app that needs mDNS turns it on (Task 7)
+  services.avahi.enable = lib.mkDefault false; # an app that needs mDNS turns it on (Sunshine, apps.nix)
 }

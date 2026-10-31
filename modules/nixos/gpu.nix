@@ -47,17 +47,11 @@ in
       internal = true;
       description = "Contents of ~/.config/nusku/gpu.lua (GPU env vars, monitor rules).";
     };
-    hyprMonitorLua = mkOption {
-      type = types.lines;
-      internal = true;
-      description = "One hl.monitor line per entry of nusku.panels.";
-    };
   };
 
   config = mkMerge [
     {
       nusku.internal.hyprGpuLua = gpuLua;
-      nusku.internal.hyprMonitorLua = monitorLua;
       assertions = [
         {
           assertion = isHybrid -> hasPrime;
@@ -66,7 +60,7 @@ in
       ];
     }
 
-    # Mesa with VA-API; 32-bit for Steam (Task 7 relies on it).
+    # Mesa with VA-API; 32-bit for Steam and other 32-bit games (apps.nix).
     (mkIf (cfg.gpu != "vm") {
       hardware.graphics = {
         enable = true;

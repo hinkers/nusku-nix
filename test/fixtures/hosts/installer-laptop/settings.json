@@ -30,5 +30,6 @@
     "spotify",
     "vlc"
   ],
-  "langs": []
+  "langs": [],
+  "stateVersion": "25.11"
 }

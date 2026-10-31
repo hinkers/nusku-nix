@@ -7,13 +7,14 @@
 # settings.json validation (modules/nixos/options.nix).
 
 GOLDEN=test/fixtures/hosts/installer-laptop
+FIXTURES="$PWD/test/fixtures"
 
 setup() {
     REPO="$BATS_TEST_TMPDIR/repo"
     mkdir -p "$REPO/lib" "$REPO/hosts"
     cp install.sh "$REPO/"
     cp -r lib/sh "$REPO/lib/"
-    cp lib/palette.nix lib/installer-config.nix "$REPO/lib/"
+    cp lib/palette.nix lib/installer-config.nix lib/home-paths.txt "$REPO/lib/"
     : >"$REPO/hosts/.gitkeep"
     export HOME="$BATS_TEST_TMPDIR/home" # no git identity unless a test sets one
     mkdir -p "$HOME"
@@ -377,7 +378,7 @@ set_apps() {
 
 # --- hosts/NAME/installer.nix: the NixOS installer's boot and encryption settings -------------
 
-FIXTURES="$PWD/test/fixtures"
+
 # evaluator CHANNEL|FLAKE: the evaluator's command line, with the system's nixpkgs channel or
 # the flake's pinned nixpkgs.
 evaluator() {
@@ -467,4 +468,105 @@ evaluator() {
     [ "$status" -eq 0 ]
     ! grep -q installer-config "$CALLS" || false
     [ ! -e "$REPO/hosts/laptop/installer.nix" ]
+}
+
+# --- settings.json "stateVersion": the release NixOS was installed with -------------------------
+
+@test "stateVersion: the first run records the installed release; --host never changes it" {
+    keys '\n\x7f\x7f\x7f\x7f\x7finstaller-laptop\n\e[F\n'
+    run install --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(jq -r .stateVersion "$REPO/hosts/installer-laptop/settings.json")" = 25.11 ] # plain/evaluated.json
+    export INSTALLER_OUT="$FIXTURES/installer/bios-luks/evaluated.json" # a reinstall from 25.05
+    run install --host installer-laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(jq -r .stateVersion "$REPO/hosts/installer-laptop/settings.json")" = 25.11 ]
+}
+
+@test "stateVersion: from nixos-version without configuration.nix; a host without one keeps none" {
+    printf '#!/bin/sh\necho "25.05.20250601.abcdef0 (Warbler)"\n' >"$STUBS/nixos-version"
+    chmod +x "$STUBS/nixos-version"
+    keys '\n\x7f\x7f\x7f\x7f\x7finstaller-laptop\n\e[F\n'
+    NUSKU_NIXOS_CONFIG=/nonexistent run install --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(jq -r .stateVersion "$REPO/hosts/installer-laptop/settings.json")" = 25.05 ]
+    seed_host laptop
+    local f="$REPO/hosts/laptop/settings.json"
+    jq 'del(.stateVersion)' "$f" >"$f.new" && mv "$f.new" "$f" && owner commit -q -am "older host"
+    keys '\e[F\n'
+    NUSKU_HOSTNAME=laptop run install --reconfigure --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(jq 'has("stateVersion")' "$f")" = false ]
+}
+
+# --- the home check: files where Home Manager puts its own -----------------------------------
+
+# leftovers: nusku-arch's files (plain files and folders), next to ones Home Manager already made
+# (links into the Nix store) and files Nusku doesn't manage.
+leftovers() {
+    mkdir -p "$HOME/.config/hypr" "$HOME/.config/kitty" "$HOME/.config/nvim/lua" "$HOME/.config/gtk-3.0"
+    echo 'old' >"$HOME/.config/hypr/hyprland.lua"
+    echo 'old' >"$HOME/.zshrc"
+    ln -s /nix/store/x-home-manager-files/.config/kitty/kitty.conf "$HOME/.config/kitty/kitty.conf"
+    ln -s /nix/store/x-home-manager-files/.config/nvim/init.lua "$HOME/.config/nvim/init.lua"
+    echo '{}' >"$HOME/.config/nvim/lazyvim.json" # LazyVim writes it into the managed folder
+    echo 'file:///home bookmarks' >"$HOME/.config/gtk-3.0/bookmarks"
+    mkdir -p "$HOME/.config/swaync" "$HOME/.icons/catppuccin-mocha-mauve-cursors"
+    echo '{}' >"$HOME/.config/swaync/config.json"
+    echo 'x' >"$HOME/.icons/catppuccin-mocha-mauve-cursors/index.theme"
+}
+
+@test "home check: leftovers are listed and, on Move, moved to ~/nusku-backup-<time> before the build" {
+    seed_host laptop
+    leftovers
+    keys '\n'
+    run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"~/.zshrc"* && "$output" == *"~/.config/hypr"* && "$output" == *"~/.config/swaync/config.json"* ]]
+    [[ "$output" == *"~/.icons/catppuccin-mocha-mauve-cursors"* ]]
+    [[ "$output" != *"~/.config/kitty"* && "$output" != *"~/.config/nvim"* && "$output" != *"gtk-3.0"* ]]
+    local backup
+    backup="$(echo "$HOME"/nusku-backup-*)"
+    [ -d "$backup" ]
+    [ "$(cat "$backup/.config/hypr/hyprland.lua")" = old ] && [ "$(cat "$backup/.zshrc")" = old ]
+    [ -f "$backup/.config/swaync/config.json" ] && [ -d "$backup/.icons/catppuccin-mocha-mauve-cursors" ]
+    [ ! -e "$HOME/.config/hypr" ] && [ ! -e "$HOME/.zshrc" ]
+    [ -L "$HOME/.config/kitty/kitty.conf" ] && [ -f "$HOME/.config/nvim/lazyvim.json" ] && [ -f "$HOME/.config/gtk-3.0/bookmarks" ]
+    grep -qF "nixos-rebuild switch --flake $REPO#laptop" "$CALLS"
+    [[ "$output" == *"Files that were in Home Manager's way are in $backup"* ]]
+}
+
+@test "home check: Stop moves nothing and builds nothing" {
+    seed_host laptop
+    leftovers
+    keys '\e[B\n'
+    run install --host laptop --no-reboot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Stopped before the build; nothing was moved"* ]]
+    [ -f "$HOME/.zshrc" ] && [ -f "$HOME/.config/hypr/hyprland.lua" ]
+    ! ls -d "$HOME"/nusku-backup-* 2>/dev/null || false
+    ! grep -q nixos-rebuild "$CALLS" || false
+}
+
+@test "home check without a terminal: stops with the list, moves nothing" {
+    seed_host laptop
+    leftovers
+    unset NUSKU_TUI_IN
+    run install --host laptop --no-reboot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"~/.zshrc"*"Move them out of the way"* ]]
+    [ -f "$HOME/.zshrc" ]
+    ! grep -q nixos-rebuild "$CALLS" || false
+}
+
+@test "home check: a home Home Manager already manages passes without a question" {
+    seed_host laptop
+    mkdir -p "$HOME/.config/hypr"
+    ln -s /nix/store/x-home-manager-files/.zshrc "$HOME/.zshrc"
+    ln -s /nix/store/x-home-manager-files/.config/hypr/hyprland.lua "$HOME/.config/hypr/hyprland.lua"
+    echo 'mine' >"$HOME/.config/hypr/notes.txt"
+    run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [ ! -s "$NUSKU_TUI_OUT" ]
+    [[ "$output" != *"weren't made by Home Manager"* ]]
 }

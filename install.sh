@@ -80,6 +80,8 @@ source "$NUSKU_ROOT/lib/sh/questions.sh"
 source "$NUSKU_ROOT/lib/sh/rebuild.sh"
 # shellcheck source=lib/sh/installer-config.sh
 source "$NUSKU_ROOT/lib/sh/installer-config.sh"
+# shellcheck source=lib/sh/home-check.sh
+source "$NUSKU_ROOT/lib/sh/home-check.sh"
 
 # A fresh NixOS has flakes switched off: every nix and nixos-rebuild call here gets them (once:
 # the re-run inside `nix shell` below inherits them).
@@ -184,6 +186,7 @@ step_host() {
     step "Host $name"
     case "$mode" in
         first)
+            answers_set STATE_VERSION "$(installer_state_version)"
             host_write "$name"
             host_copy_hw "$name"
             host_write_installer "$name"
@@ -225,6 +228,14 @@ record_checkout() {
     local file="${XDG_CONFIG_HOME:-$HOME/.config}/nusku/repo"
     mkdir -p "$(dirname "$file")"
     printf '%s\n' "$NUSKU_ROOT" >"$file"
+}
+
+# Leftovers where Home Manager puts its files would stop the switch: move them aside, or stop.
+step_home() {
+    step "Your home"
+    home_check
+    [ -z "$HOME_BACKUP" ] ||
+        NOTES+=("Files that were in Home Manager's way are in $HOME_BACKUP; copy back what you need.")
 }
 
 step_build() {
@@ -286,6 +297,7 @@ main() {
     step_questions
     step_host
     collect_notes
+    step_home
     step_build
     step_summary
     step_reboot

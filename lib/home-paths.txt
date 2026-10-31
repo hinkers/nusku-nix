@@ -1,0 +1,72 @@
+# What Nusku's Home Manager config puts in your home, relative to it. Before a build, install.sh
+# looks for these (lib/sh/home-check.sh): one that exists and isn't Home Manager's would stop the
+# switch, so it offers to move it aside. test/eval/home-paths.nix checks this list against the
+# Home Manager config: every file it manages is covered, and every entry is one of them.
+#   name       a file (or a link Home Manager makes to a whole directory)
+#   name/      a directory: in the way when it has files but no Home Manager links
+#   name*      every path that starts with name (names that change with the accent)
+
+# Shell and terminal
+.zshrc
+.zprofile
+.config/starship.toml
+.config/kitty/kitty.conf
+.config/kitty/mocha.conf
+.config/fastfetch/config.jsonc
+.config/btop/themes/catppuccin_mocha.theme
+
+# Hyprland and the bar, notifications and menus
+.config/hypr/
+.config/waybar/config.jsonc
+.config/waybar/style.css
+.config/swaync/config.json
+.config/swaync/style.css
+.config/rofi/catppuccin-mocha.rasi
+.config/rofi/config.rasi
+.config/rofi/nusku.rasi
+.config/nusku/gpu.lua
+.config/nusku/input.lua
+.config/nusku/autostart.lua
+.config/nusku/nvim-languages.lua
+.config/nusku/nvim-nix.lua
+.config/nusku/theme/
+.local/share/nusku/wallpapers
+.config/user-dirs.dirs
+.config/user-dirs.conf
+
+# Apps
+.config/nvim/
+.config/yazi/yazi.toml
+.config/yazi/theme.toml
+.config/yazi/Catppuccin-mocha.tmTheme
+.config/mozilla/firefox/profiles.ini
+.config/mozilla/firefox/default/
+.mozilla/native-messaging-hosts
+.config/chromium/External Extensions/
+.config/BraveSoftware/Brave-Browser/External Extensions/
+
+# Theme: GTK, Qt, cursors, fonts
+.config/gtk-3.0/gtk.css
+.config/gtk-3.0/settings.ini
+.config/gtk-4.0/gtk.css
+.config/gtk-4.0/settings.ini
+.gtkrc-2.0
+.config/qt5ct/qt5ct.conf
+.config/qt6ct/qt6ct.conf
+.config/Kvantum/kvantum.kvconfig
+.config/Kvantum/catppuccin-mocha-*
+.Xresources
+.icons/default/index.theme
+.icons/catppuccin-mocha-*
+.local/share/icons/default/index.theme
+.local/share/icons/catppuccin-mocha-*
+.config/fontconfig/conf.d/10-hm-fonts.conf
+.config/fontconfig/conf.d/10-hm-rendering.conf
+.config/fontconfig/conf.d/52-hm-default-fonts.conf
+
+# Home Manager's own
+.config/systemd/user/
+.config/environment.d/10-home-manager.conf
+.config/dconf/.keep
+.cache/.keep
+.local/state/.keep

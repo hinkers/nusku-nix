@@ -2,5 +2,6 @@
   "hostname": "vm-swap",
   "user": "tester",
   "gpu": "vm",
-  "accent": "sky"
+  "accent": "sky",
+  "stateVersion": "25.11"
 }

@@ -100,6 +100,16 @@ let
       default = [ ];
       description = "Language ids from lib/catalogue.nix.";
     };
+    stateVersion = mkOption {
+      type = types.str;
+      # Hosts recorded before install.sh wrote the key were all built as 26.05.
+      default = "26.05";
+      description = ''
+        The NixOS release this machine was installed with (install.sh reads it from the
+        installed system): system.stateVersion, and home.stateVersion from 26.05 on. Never change
+        it on an existing machine.
+      '';
+    };
   };
 
   quote = s: "\"${s}\"";
@@ -149,6 +159,10 @@ in
       {
         assertion = !hasNvidia -> cfg.nvidia == null;
         message = "settings.json: \"nvidia\" must be null when gpu is ${quote cfg.gpu}";
+      }
+      {
+        assertion = builtins.match "[0-9][0-9]\\.[0-9][0-9]" cfg.stateVersion != null;
+        message = "settings.json: stateVersion ${quote cfg.stateVersion} is not a NixOS release like 25.11";
       }
       {
         assertion = cfg.boot.loader == "grub" -> cfg.boot.device != null;

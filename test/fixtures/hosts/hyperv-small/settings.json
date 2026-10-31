@@ -11,5 +11,6 @@
   "panels": [],
   "accent": "mauve",
   "apps": [ "neovim", "firefox", "obsidian", "calendar", "pokemon" ],
-  "langs": [ "python" ]
+  "langs": [ "python" ],
+  "stateVersion": "26.05"
 }

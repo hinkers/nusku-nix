@@ -37,4 +37,6 @@ in
   efiSysMountPoint = boot.loader.efi.efiSysMountPoint;
   secrets = builtins.mapAttrs (_: str) boot.initrd.secrets;
   luks = builtins.mapAttrs (_: luksDevice) boot.initrd.luks.devices;
+  # Not a boot setting: the release NixOS was installed with, for settings.json "stateVersion".
+  stateVersion = config.system.stateVersion;
 }
