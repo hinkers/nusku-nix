@@ -5,13 +5,17 @@ let
   grub = cfg.boot.loader == "grub";
 in
 {
-  # Boot: systemd-boot on EFI, or GRUB on the device the installer picked.
+  # Boot: systemd-boot on EFI, or GRUB on the device the installer picked. A host's
+  # installer.nix (lib/hosts.nix) adds what the NixOS installer set up: GRUB cryptodisk and
+  # os-prober, LUKS key files and devices, an ESP mounted elsewhere than /boot (systemd-boot
+  # installs to boot.loader.efi.efiSysMountPoint). Its GRUB disk is the one the NixOS installer
+  # really used, so it wins over settings.json's boot.device (stale after a reinstall).
   boot.loader = {
     systemd-boot.enable = !grub;
     efi.canTouchEfiVariables = !grub;
     grub = lib.mkIf grub {
       enable = true;
-      device = cfg.boot.device;
+      device = lib.mkDefault cfg.boot.device;
     };
   };
   boot.kernelPackages = pkgs.linuxPackages_latest;

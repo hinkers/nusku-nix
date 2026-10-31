@@ -1,0 +1,6 @@
+{
+  "hostname": "vm-swap",
+  "user": "tester",
+  "gpu": "vm",
+  "accent": "sky"
+}

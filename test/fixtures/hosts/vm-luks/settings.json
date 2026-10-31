@@ -1,0 +1,7 @@
+{
+  "hostname": "vm-luks",
+  "user": "tester",
+  "gpu": "vm",
+  "accent": "peach",
+  "boot": { "loader": "grub", "device": "/dev/vda" }
+}

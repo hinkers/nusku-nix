@@ -31,11 +31,17 @@ The installer writes `hosts/<name>/` (the host name you chose), commits it and b
 for your sudo password once, for the switch. Push the commit (`git push`) so a reinstall can find
 it. Each run logs to `~/.local/state/nusku/install-<time>.log`.
 
-**The first build replaces `/etc/nixos/configuration.nix`.** From then on the machine is built
-from this repo, so anything you set in that file during the NixOS install is no longer used:
-users, Wi-Fi, packages and other settings come from Nusku's modules. Your user's password is
-kept, and Wi-Fi networks you saved with NetworkManager stay saved. If you added something to
-`configuration.nix` that you want to keep, put it in the repo before you run the installer.
+**From the first build on, the machine is built from this repo, not from
+`/etc/nixos/configuration.nix`.** The installer carries over what that file needs for the machine
+to boot: the boot and encryption settings the NixOS installer wrote there (GRUB's disk and
+os-prober, GRUB's encrypted-disk support, the disk key file and every encrypted disk or swap
+partition, and the EFI partition's mount point when it isn't `/boot`). It reads them from the
+evaluated configuration and writes them to `hosts/<name>/installer.nix`, committed with the rest;
+a plain unencrypted UEFI install has nothing to carry and gets no such file. Everything else in
+`configuration.nix` is no longer used: users, Wi-Fi, packages and other settings come from
+Nusku's modules. Your user's password is kept, and Wi-Fi networks you saved with NetworkManager
+stay saved. If you added something else to `configuration.nix` that you want to keep, put it in
+the repo before you run the installer.
 
 ## Reinstall a machine you already set up
 
@@ -46,7 +52,8 @@ Install NixOS as above, clone the repo (with the host committed and pushed), the
 ```
 
 It asks nothing: it takes this machine's new `/etc/nixos/hardware-configuration.nix` (a
-reinstall has new disk IDs) into `hosts/NAME`, commits it if it changed and builds. The user
+reinstall has new disk IDs) and the NixOS installer's boot and encryption settings
+(`installer.nix`, as above) into `hosts/NAME`, commits them if they changed and builds. The user
 named in `hosts/NAME/settings.json` must already exist on the new install. Running
 `./install.sh` with no options on a machine whose host name already has a host does the same.
 
@@ -237,7 +244,8 @@ The desktop looks and works the same. What changed:
 
 - `install.sh`, `lib/sh/` — the installer and the shell code that `nusku-rebuild` and
   `nusku-update` share with it.
-- `hosts/<name>/` — each machine's `settings.json` and `hardware-configuration.nix`.
+- `hosts/<name>/` — each machine's `settings.json` and `hardware-configuration.nix`, and its
+  `installer.nix` when the NixOS installer set up encryption or GRUB (`lib/installer-config.nix`).
 - `flake.nix` — `nixosConfigurations.<name>` for every `hosts/<name>/`.
 - `lib/hosts.nix` — builds a host from its `settings.json`.
 - `lib/catalogue.nix` — the optional apps and languages (see them as JSON with

@@ -13,7 +13,7 @@ setup() {
     mkdir -p "$REPO/lib" "$REPO/hosts"
     cp install.sh "$REPO/"
     cp -r lib/sh "$REPO/lib/"
-    cp lib/palette.nix "$REPO/lib/"
+    cp lib/palette.nix lib/installer-config.nix "$REPO/lib/"
     : >"$REPO/hosts/.gitkeep"
     export HOME="$BATS_TEST_TMPDIR/home" # no git identity unless a test sets one
     mkdir -p "$HOME"
@@ -27,10 +27,23 @@ setup() {
     : >"$CALLS"
     # Each call is logged as one line, written at once (the sudo keep-alive runs alongside), with
     # newlines (NIX_CONFIG has two) as spaces and a space at the end.
+    # The NixOS installer's settings (lib/sh/installer-config.sh): the evaluator prints
+    # $INSTALLER_OUT (test/fixtures/installer/<case>/evaluated.json). NO_CHANNEL: no <nixpkgs> on
+    # NIX_PATH; FAIL_EVAL: the configuration does not evaluate.
     cat >"$STUBS/nix" <<'EOF'
 #!/bin/sh
 printf 'nix %s\n' "$*" >>"$CALLS"
 printf '%s\n' "nix NIX_CONFIG=$(printf '%s\n' "$NIX_CONFIG" | tr '\n' ' ')" >>"$CALLS"
+case "$*" in
+    *installer-config.nix*)
+        case "$*" in *"builtins.nixPath"*)
+            [ -z "${NO_CHANNEL:-}" ] || { echo "error: no nixpkgs channel on NIX_PATH" >&2; exit 1; } ;;
+        esac
+        [ -z "${FAIL_EVAL:-}" ] || { echo "error: undefined variable 'foo' at /etc/nixos/configuration.nix:3:5" >&2; exit 1; }
+        cat "$INSTALLER_OUT"
+        exit 0
+        ;;
+esac
 case "$1" in eval) cat "$CATALOGUE" ;; esac
 EOF
     cat >"$STUBS/sudo" <<'EOF'
@@ -63,6 +76,9 @@ EOF
     printf '1920x1200\n' >"$NUSKU_DRM_DIR/card1-eDP-1/modes"
     export NUSKU_HW_CONFIG="$BATS_TEST_TMPDIR/hardware-configuration.nix"
     cp "$GOLDEN/hardware-configuration.nix" "$NUSKU_HW_CONFIG"
+    export NUSKU_NIXOS_CONFIG="$BATS_TEST_TMPDIR/configuration.nix"
+    : >"$NUSKU_NIXOS_CONFIG"
+    export INSTALLER_OUT="$PWD/test/fixtures/installer/plain/evaluated.json"
     export NUSKU_TUI_IN="$BATS_TEST_TMPDIR/keys" NUSKU_TUI_OUT="$BATS_TEST_TMPDIR/screen"
     : >"$NUSKU_TUI_IN"
     export XDG_STATE_HOME="$BATS_TEST_TMPDIR/state"
@@ -357,4 +373,98 @@ set_apps() {
     [ "$status" -eq 2 ]
     run install --apps --reconfigure
     [ "$status" -eq 2 ]
+}
+
+# --- hosts/NAME/installer.nix: the NixOS installer's boot and encryption settings -------------
+
+FIXTURES="$PWD/test/fixtures"
+# evaluator CHANNEL|FLAKE: the evaluator's command line, with the system's nixpkgs channel or
+# the flake's pinned nixpkgs.
+evaluator() {
+    local nixos='(let c = builtins.filter (e: e.prefix == "nixpkgs" && builtins.pathExists e.path) builtins.nixPath; in if c == [ ] then throw "no nixpkgs channel on NIX_PATH" else (builtins.head c).path + "/nixos")'
+    [ "$1" = CHANNEL ] || nixos="((builtins.getFlake \"git+file://$(realpath "$REPO")\").inputs.nixpkgs + \"/nixos\")"
+    printf 'nix eval --impure --json --expr import (/. + "%s/lib/installer-config.nix") (import %s { configuration = /. + "%s"; }).config' \
+        "$(realpath "$REPO")" "$nixos" "$NUSKU_NIXOS_CONFIG"
+}
+
+@test "BIOS + LUKS first run: GRUB on the evaluated disk, installer.nix carries cryptodisk, key file and LUKS" {
+    export INSTALLER_OUT="$FIXTURES/installer/bios-luks/evaluated.json"
+    # The old guess: / is on a LUKS mapping, whose parent is a partition.
+    printf '#!/bin/sh\necho /dev/mapper/luks-5f2b8c1e\n' >"$STUBS/findmnt"
+    printf '#!/bin/sh\necho vda2\n' >"$STUBS/lsblk"
+    chmod +x "$STUBS/findmnt" "$STUBS/lsblk"
+    keys '\n\x7f\x7f\x7f\x7f\x7finstaller-laptop\n\e[F\n'
+    NUSKU_EFI_DIR=/nonexistent run install --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(jq -c .boot "$REPO/hosts/installer-laptop/settings.json")" = '{"loader":"grub","device":"/dev/vda"}' ]
+    diff "$REPO/hosts/installer-laptop/installer.nix" "$FIXTURES/hosts/vm-luks/installer.nix"
+    [ "$(git -C "$REPO" show --name-only --format= HEAD)" = $'hosts/installer-laptop/hardware-configuration.nix\nhosts/installer-laptop/installer.nix\nhosts/installer-laptop/settings.json' ]
+    grep -qxF "$(evaluator CHANNEL)" "$CALLS"
+}
+
+@test "--host on UEFI + encrypted swap: installer.nix written and committed; unchanged next time" {
+    seed_host laptop
+    export INSTALLER_OUT="$FIXTURES/installer/uefi-swap/evaluated.json"
+    run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    diff "$REPO/hosts/laptop/installer.nix" "$FIXTURES/hosts/vm-swap/installer.nix"
+    [ "$(git -C "$REPO" show --name-only --format= HEAD)" = $'hosts/laptop/hardware-configuration.nix\nhosts/laptop/installer.nix' ]
+    local n
+    n="$(commits)"
+    run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(commits)" = "$n" ]
+}
+
+@test "a plain install writes no installer.nix; --host drops a stale one" {
+    keys '\n\x7f\x7f\x7f\x7f\x7finstaller-laptop\n\e[F\n'
+    run install --no-reboot
+    [ "$status" -eq 0 ]
+    [ ! -e "$REPO/hosts/installer-laptop/installer.nix" ]
+    seed_host laptop
+    cp "$FIXTURES/hosts/vm-swap/installer.nix" "$REPO/hosts/laptop/"
+    git -C "$REPO" add hosts/laptop && owner commit -q -m "old install"
+    run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [ ! -e "$REPO/hosts/laptop/installer.nix" ]
+    [ "$(git -C "$REPO" show --name-status --format= HEAD | grep installer.nix)" = $'D\thosts/laptop/installer.nix' ]
+}
+
+@test "no nixpkgs channel: the flake's pinned nixpkgs evaluates configuration.nix" {
+    seed_host laptop
+    export INSTALLER_OUT="$FIXTURES/installer/uefi-swap/evaluated.json"
+    NO_CHANNEL=1 run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    grep -qxF "$(evaluator CHANNEL)" "$CALLS"
+    grep -qxF "$(evaluator FLAKE)" "$CALLS"
+    diff "$REPO/hosts/laptop/installer.nix" "$FIXTURES/hosts/vm-swap/installer.nix"
+}
+
+@test "configuration.nix that does not evaluate: the install stops before building" {
+    seed_host laptop
+    FAIL_EVAL=1 run install --host laptop --no-reboot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Could not evaluate $NUSKU_NIXOS_CONFIG"*"undefined variable 'foo'"* ]]
+    ! grep -q nixos-rebuild "$CALLS" || false
+}
+
+@test "no /etc/nixos/configuration.nix: nothing carried, an existing installer.nix is kept" {
+    seed_host laptop
+    cp "$FIXTURES/hosts/vm-swap/installer.nix" "$REPO/hosts/laptop/"
+    git -C "$REPO" add hosts/laptop && owner commit -q -m "old install"
+    NUSKU_NIXOS_CONFIG=/nonexistent run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"No /nonexistent"* ]]
+    diff "$REPO/hosts/laptop/installer.nix" "$FIXTURES/hosts/vm-swap/installer.nix"
+    ! grep -q installer-config "$CALLS" || false
+}
+
+@test "--apps and --reconfigure leave installer.nix alone (no evaluation)" {
+    seed_host laptop
+    keys '\e[F\n'
+    export INSTALLER_OUT="$FIXTURES/installer/bios-luks/evaluated.json"
+    NUSKU_HOSTNAME=laptop run install --apps --no-reboot
+    [ "$status" -eq 0 ]
+    ! grep -q installer-config "$CALLS" || false
+    [ ! -e "$REPO/hosts/laptop/installer.nix" ]
 }

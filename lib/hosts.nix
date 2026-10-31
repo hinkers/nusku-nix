@@ -1,5 +1,7 @@
 # One nixosSystem per subdirectory of `dir` that has a settings.json (the installer's answers)
-# and a hardware-configuration.nix. A missing or empty `dir` gives no hosts.
+# and a hardware-configuration.nix, plus its installer.nix when there is one: the boot and
+# encryption settings the NixOS installer wrote to /etc/nixos/configuration.nix (install.sh,
+# lib/installer-config.nix). A missing or empty `dir` gives no hosts.
 # `extraModules` are added to every host (only test/hyperv/hosts.nix passes any).
 { inputs, dir, extraModules ? [ ] }:
 let
@@ -16,7 +18,9 @@ let
       modules = [
         (dir + "/${name}/hardware-configuration.nix")
         ../modules/nixos
-      ] ++ extraModules;
+      ]
+      ++ lib.optional (builtins.pathExists (dir + "/${name}/installer.nix")) (dir + "/${name}/installer.nix")
+      ++ extraModules;
     };
 in
 lib.mapAttrs mkHost (lib.filterAttrs isHost entries)

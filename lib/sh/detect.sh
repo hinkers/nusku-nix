@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # Nusku - what the installer reads from the running machine, as defaults for the settings menu.
 # Sourced, not executed. Nothing here fails: an unreadable probe gives the usual default.
+# detect_boot also reads NUSKU_INSTALLER_JSON (lib/sh/installer-config.sh) when it is set.
 # Test hooks (each value can be set from the environment): NUSKU_HOSTNAME, NUSKU_USER,
 # NUSKU_TIMEZONE (else NUSKU_LOCALTIME, default /etc/localtime), NUSKU_LOCALE, NUSKU_KEYMAP,
 # NUSKU_EFI_DIR (default /sys/firmware/efi), NUSKU_ROOT_DISK, NUSKU_DRM_DIR (default
@@ -82,7 +83,9 @@ detect_panels() {
     printf '[%s]\n' "$out"
 }
 
-# detect_boot: "systemd-boot" on a UEFI machine, else "grub DISK" with the disk / is on.
+# detect_boot: "systemd-boot" on a UEFI machine, else "grub DISK": the disk the NixOS installer
+# put GRUB on (boot.loader.grub.device in NUSKU_INSTALLER_JSON, lib/sh/installer-config.sh), else
+# the disk / is on (under LUKS or LVM that guess can be a partition).
 detect_boot() {
     local src disk
     if [ -d "${NUSKU_EFI_DIR:-/sys/firmware/efi}" ]; then
@@ -90,6 +93,9 @@ detect_boot() {
         return 0
     fi
     disk="${NUSKU_ROOT_DISK:-}"
+    if [ -z "$disk" ] && [ -n "${NUSKU_INSTALLER_JSON:-}" ]; then
+        disk="$(jq -r '.grub.device // "" | select(startswith("/dev/"))' <<<"$NUSKU_INSTALLER_JSON" 2>/dev/null || true)"
+    fi
     if [ -z "$disk" ]; then
         src="$(findmnt -n -o SOURCE / 2>/dev/null || true)"
         disk="$(lsblk -n -d -o PKNAME "$src" 2>/dev/null || true)"

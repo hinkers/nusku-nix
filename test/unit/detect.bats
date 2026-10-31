@@ -108,6 +108,21 @@ fake_panel() {
     [ "$output" = "grub /dev/sdb" ]
 }
 
+@test "detect_boot on BIOS: the NixOS installer's evaluated GRUB disk wins over the root's parent" {
+    # Under LUKS or LVM the root's parent is a partition (vda2), not a disk GRUB can go on.
+    stub findmnt 'echo /dev/mapper/luks-5f2b8c1e'
+    stub lsblk 'echo vda2'
+    local json
+    json="$(cat test/fixtures/installer/bios-luks/evaluated.json)"
+    NUSKU_INSTALLER_JSON="$json" NUSKU_EFI_DIR="$BATS_TEST_TMPDIR/none" run detect detect_boot
+    [ "$output" = "grub /dev/vda" ]
+    # No GRUB in the evaluated config, or no disk ("nodev"): the old guess.
+    NUSKU_INSTALLER_JSON='{"grub":null}' NUSKU_EFI_DIR="$BATS_TEST_TMPDIR/none" run detect detect_boot
+    [ "$output" = "grub /dev/vda2" ]
+    NUSKU_INSTALLER_JSON='{"grub":{"device":"nodev"}}' NUSKU_EFI_DIR="$BATS_TEST_TMPDIR/none" run detect detect_boot
+    [ "$output" = "grub /dev/vda2" ]
+}
+
 @test "detect_timezone, detect_locale, detect_keymap: read from timedatectl and localectl" {
     stub timedatectl 'echo Australia/Brisbane'
     stub localectl "printf '   System Locale: LANG=en_AU.UTF-8\n                  LC_TIME=en_GB.UTF-8\n       VC Keymap: n/a\n      X11 Layout: de\n'"

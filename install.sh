@@ -17,7 +17,8 @@ user; it asks for sudo for the build. Safe to re-run.
   (no options)     First run: asks the questions, writes hosts/<name>/, commits and builds it.
                    On a machine that already has its host (hosts/<hostname>), rebuilds it.
   --host NAME      Reinstall a known machine: no questions. Takes this machine's
-                   /etc/nixos/hardware-configuration.nix (its disk IDs) into hosts/NAME, builds.
+                   /etc/nixos/hardware-configuration.nix (its disk IDs) and the NixOS
+                   installer's boot and encryption settings into hosts/NAME, builds.
   --apps           Change this machine's optional apps and languages, then rebuild.
   --reconfigure    Open the settings menu again on this machine's settings, then rebuild.
   --no-reboot      Do not offer to reboot at the end.
@@ -77,6 +78,8 @@ source "$NUSKU_ROOT/lib/sh/tui.sh"
 source "$NUSKU_ROOT/lib/sh/questions.sh"
 # shellcheck source=lib/sh/rebuild.sh
 source "$NUSKU_ROOT/lib/sh/rebuild.sh"
+# shellcheck source=lib/sh/installer-config.sh
+source "$NUSKU_ROOT/lib/sh/installer-config.sh"
 
 # A fresh NixOS has flakes switched off: every nix and nixos-rebuild call here gets them (once:
 # the re-run inside `nix shell` below inherits them).
@@ -148,6 +151,9 @@ preflight() {
         die "The build needs sudo. Make sure your user can use sudo (is in the wheel group) and you typed the password correctly."
     sudo_keepalive
     catalogue_load
+    # A new or reinstalled machine: what the NixOS installer set up for booting (LUKS, GRUB).
+    # Read before the questions, where it gives GRUB's disk.
+    case "$mode" in first | host) installer_probe ;; esac
 }
 
 step_questions() {
@@ -180,10 +186,14 @@ step_host() {
         first)
             host_write "$name"
             host_copy_hw "$name"
+            host_write_installer "$name"
             ;;
         reconfigure) host_write "$name" ;;
         apps) host_write_picks "$name" ;;
-        host) host_copy_hw "$name" ;;
+        host)
+            host_copy_hw "$name"
+            host_write_installer "$name"
+            ;;
     esac
     host_commit "$name"
 }
