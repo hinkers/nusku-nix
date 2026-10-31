@@ -45,6 +45,7 @@ if [ -z "$repo" ] && [ -r "$record" ]; then
 fi
 [ -n "$repo" ] || die "Can't find your Nusku checkout: NUSKU_REPO is not set and there is no $record. $fix"
 [ -f "$repo/flake.nix" ] || die "$repo (from $from) has no flake.nix: it is not a Nusku checkout, or it moved. $fix"
+repo="$(cd "$repo" && pwd)" # a relative NUSKU_REPO, as an absolute path for the flake ref
 if [ ! -f "$repo/hosts/$host/settings.json" ]; then
     known=""
     for f in "$repo"/hosts/*/settings.json; do

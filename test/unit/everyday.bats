@@ -278,3 +278,33 @@ upstream_commit() {
     [[ "$output" == *"hosts/elsewhere"* ]]
     [ ! -s "$CALLS" ]
 }
+
+@test "update: no upstream branch stops it and names the likely causes" {
+    record "$REPO"
+    git -C "$REPO" branch -q --unset-upstream
+    NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"git pull --ff-only failed"*"no network, no upstream branch, or this machine and the remote both have new commits"* ]]
+    [ -z "$(git -C "$REPO" status --porcelain)" ]
+    [ ! -s "$CALLS" ]
+}
+
+# --- Both -----------------------------------------------------------------------------------
+
+@test "both: a relative NUSKU_REPO becomes an absolute flake ref" {
+    local scripts="$PWD/scripts"
+    cd "$BATS_TEST_TMPDIR"
+    NUSKU_REPO=repo PATH="$STUBS:$PATH" run bash "$scripts/nusku-rebuild"
+    [ "$status" -eq 0 ]
+    built "$REPO"
+    : >"$CALLS"
+    NUSKU_REPO=./repo PATH="$STUBS:$PATH" run bash "$scripts/nusku-update" <<<"n"
+    [ "$status" -eq 0 ]
+    built "$REPO"
+}
+
+@test "both: the marked checkout-finding blocks are identical" {
+    block() { sed -n '/^# --- The checkout/,/^# ------/p' "$1" | tail -n +2; }
+    [ -n "$(block scripts/nusku-rebuild)" ]
+    diff <(block scripts/nusku-rebuild) <(block scripts/nusku-update)
+}

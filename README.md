@@ -12,8 +12,10 @@ undone from the boot menu.
 
 1. Install NixOS from the USB stick. In the graphical installer, pick **No desktop** on the
    Desktop page. Create your user there and connect to Wi-Fi if you need it.
-2. Log in, then clone this repo and run the installer as your normal user (not root). A fresh
-   NixOS has no git yet, so borrow it with `nix-shell`:
+2. Log in, then clone this repo and run the installer as your normal user (not root). If
+   you're on Wi-Fi and it isn't connected, connect with `nmtui` first (the live USB's connection
+   may not carry over to the installed system). A fresh NixOS has no git yet, so borrow it with
+   `nix-shell`:
 
    ```sh
    nix-shell -p git --run 'git clone https://github.com/hinkers/nusku-nix.git'
@@ -151,9 +153,10 @@ These get Catppuccin (Mocha) when they are picked:
   theme is a Firefox Color setting in your accent. Firefox Color itself is a fixed copy from the
   Nix store, installed by policy, so no network is needed. An existing `~/.mozilla/firefox` is
   not touched; if you have one, Firefox may keep starting from it, unthemed. If you already have a
-  `~/.config/mozilla/firefox/profiles.ini` that Home Manager didn't make, the switch stops
-  because that file is in the way: move it away (for example
-  `mv ~/.config/mozilla/firefox ~/firefox-old`) and run `nusku-rebuild` again.
+  `~/.config/mozilla/firefox/profiles.ini` that Home Manager didn't make, Home Manager won't
+  replace it, so your desktop configs aren't updated and the rebuild reports an error: move it
+  away (for example `mv ~/.config/mozilla/firefox ~/firefox-old`) and run `nusku-rebuild`
+  again.
 - **Chromium** and **Brave**: catppuccin's Mocha theme extension, which the browser downloads
   from the Chrome Web Store (there is no accent choice). This is the one accepted exception to
   "nothing installed outside Nix". You may have to confirm it once.
@@ -222,9 +225,10 @@ The desktop looks and works the same. What changed:
   WordCraft, SoundCraft, DeckCraft, CADCraft, GridCraft), updated when nixpkgs updates them.
   FilmCraft, EffectCraft, DesignCraft and FigCraft aren't available.
 - **Bitwarden and LibreWolf** come from nixpkgs instead of Flatpak.
-- **Also themed:** Firefox, Chromium, Brave and Obsidian (see above).
+- **Also themed:** Firefox, Chromium, Brave and Obsidian (see above), and the GRUB boot menu (on
+  machines that boot with GRUB) and the text console.
 - **No backups folder:** Nusku doesn't copy your files aside. Home Manager refuses to replace a
-  file it didn't make and the switch stops instead, so nothing is lost.
+  file it didn't make (the rebuild reports it), so nothing is lost.
 - **Snapper** covers only `/home`; the system rolls back through the boot menu.
 
 ## Layout
@@ -234,7 +238,8 @@ The desktop looks and works the same. What changed:
 - `hosts/<name>/` — each machine's `settings.json` and `hardware-configuration.nix`.
 - `flake.nix` — `nixosConfigurations.<name>` for every `hosts/<name>/`.
 - `lib/hosts.nix` — builds a host from its `settings.json`.
-- `lib/catalogue.nix` — the optional apps and languages.
+- `lib/catalogue.nix` — the optional apps and languages (see them as JSON with
+  `nix eval --json .#lib.catalogue`).
 - `modules/nixos/` — the system; `modules/nixos/options.nix` holds the `nusku.*` options the
   settings fill in.
 - `modules/home/` — your user's side (Home Manager): dotfiles, theme, apps.
