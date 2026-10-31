@@ -23,8 +23,8 @@ MSYS_NO_PATHCONV=1 exec docker run --rm -v "$mount:/nusku" -w /nusku nusku-nix-t
 set -euo pipefail
 # Shell scripts only (nusku-calendar is Python; its test byte-compiles it).
 files=()
-for f in scripts/* test/*.sh; do
-    [[ -f $f ]] && head -n 1 "$f" | grep -qE "^#!.*(ba)?sh" && files+=("$f")
+for f in install.sh lib/sh/*.sh scripts/* test/*.sh; do
+    [[ -f $f ]] && head -n 1 "$f" | grep -qE "^(#!.*(ba)?sh|# shellcheck shell=bash)" && files+=("$f")
 done
 shellcheck -x "${files[@]}"
 echo "shellcheck: ${#files[@]} scripts clean"

@@ -1,0 +1,34 @@
+{
+  "hostname": "installer-laptop",
+  "user": "tester",
+  "timezone": "Australia/Brisbane",
+  "locale": "en_AU.UTF-8",
+  "keymap": "us",
+  "boot": {
+    "loader": "systemd-boot"
+  },
+  "gpu": "hybrid-intel",
+  "nvidia": "open",
+  "prime": {
+    "intelBusId": "PCI:0:2:0",
+    "nvidiaBusId": "PCI:1:0:0"
+  },
+  "panels": [
+    {
+      "output": "eDP-1",
+      "scale": 1.25
+    }
+  ],
+  "accent": "blue",
+  "apps": [
+    "neovim",
+    "gh",
+    "claude-code",
+    "firefox",
+    "discord",
+    "obsidian",
+    "spotify",
+    "vlc"
+  ],
+  "langs": []
+}
