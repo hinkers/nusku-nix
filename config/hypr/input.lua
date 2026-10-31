@@ -1,8 +1,8 @@
 -- Nusku - keyboard, mouse, touchpad and gestures.
+-- The keyboard layout is in <config>/nusku/input.lua, written by Nix from the installer's answer.
 
 hl.config({
     input = {
-        kb_layout = "us",
         follow_mouse = 1,
         sensitivity = 0,
 

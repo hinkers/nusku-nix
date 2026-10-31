@@ -43,7 +43,10 @@ in
 
   time.timeZone = cfg.timezone;
   i18n.defaultLocale = cfg.locale;
-  console.keyMap = cfg.keymap;
+  # settings.json "keymap" is an xkb layout: X11 (the SDDM greeter) and the console use it;
+  # Hyprland gets it from ~/.config/nusku/input.lua (modules/home/hyprland.nix).
+  services.xserver.xkb.layout = cfg.keymap;
+  console.useXkbConfig = true;
 
   programs.zsh.enable = true;
   # ~/.zshrc (config/zsh/zshrc) runs compinit itself; one run is enough.

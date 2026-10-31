@@ -36,7 +36,7 @@ let
     keymap = mkOption {
       type = types.str;
       default = "us";
-      description = "Keyboard layout (console and Hyprland).";
+      description = "Keyboard layout as an xkb layout name, e.g. us, gb, de (or a list: us,de); sets X11 and the SDDM greeter, the console and Hyprland.";
     };
     boot = mkOption {
       type = types.submodule {

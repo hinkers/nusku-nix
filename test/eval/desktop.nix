@@ -83,6 +83,21 @@ in
     && !(has "~/.local/bin" (builtins.readFile hm.xdg.configFile."hypr/autostart.lua".source));
   "hm: autostart starts swaync through systemd" =
     has ''hl.exec_cmd("systemctl --user start swaync")'' (builtins.readFile hm.xdg.configFile."hypr/autostart.lua".source);
+  # --- keyboard layout (settings.json "keymap" is an xkb layout) ------------------------------
+  "keyboard: the xkb layout reaches X11/SDDM, the console (useXkbConfig) and Hyprland" =
+    let gb = (hosts.vm-full.extendModules { modules = [{ nusku.keymap = lib.mkForce "gb"; }]; }).config; in
+    gb.services.xserver.xkb.layout == "gb" && gb.console.useXkbConfig
+    && cfgText (hmOf gb) "nusku/input.lua" == ''
+      -- Nusku keyboard layout (generated from settings.json "keymap"; loaded by ~/.config/hypr/hyprland.lua)
+      hl.config({ input = { kb_layout = "gb" } })
+    ''
+    && full.services.xserver.xkb.layout == "us" && has ''kb_layout = "us"'' (cfgText hm "nusku/input.lua");
+  "keyboard: hypr/input.lua no longer fixes the layout; nusku/input.lua loads before local.lua" =
+    let main = builtins.readFile ../../config/hypr/hyprland.lua; in
+    !(has "kb_layout" (builtins.readFile ../../config/hypr/input.lua))
+    # nusku/input appears once, before nusku/local
+    && builtins.length (lib.splitString ''paths.nusku .. "/input")''
+      (builtins.head (lib.splitString ''paths.nusku .. "/local")'' main))) == 2;
   "hm: gpu.lua at ~/.config/nusku/gpu.lua from the GPU module" =
     cfgText hm "nusku/gpu.lua" == full.nusku.internal.hyprGpuLua;
   "hm: kitty linked, no remembered window size" =

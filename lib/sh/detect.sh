@@ -137,10 +137,42 @@ detect_locale() {
     printf '%s\n' "${l:-en_US.UTF-8}"
 }
 
+# keymap_xkb NAME: the xkb layout for a console keymap name (localectl's VC Keymap, or what a
+# user knows from the console): uk is gb, sv-latin1 is se, de-latin1-nodeadkeys is de. An xkb
+# layout (or a comma-separated list of them) comes back unchanged.
+keymap_xkb() {
+    local k="$1"
+    case "$k" in *,*)
+        printf '%s\n' "$k"
+        return 0
+        ;;
+    esac
+    k="${k%%-latin*}"
+    k="${k%-nodeadkeys}"
+    case "$k" in
+        uk) k=gb ;;
+        sv) k=se ;;
+        sg | fr_CH) k=ch ;;
+        cf) k=ca ;;
+        jp106) k=jp ;;
+        br-abnt2) k=br ;;
+        la) k=latam ;;
+        trq) k="tr" ;;
+        pl2) k=pl ;;
+    esac
+    printf '%s\n' "$k"
+}
+
+# detect_keymap: the keyboard as an xkb layout (settings.json "keymap" sets X11 and SDDM, the
+# console and Hyprland): localectl's X11 Layout first, else its console keymap as an xkb
+# layout, else us.
 detect_keymap() {
     local k="${NUSKU_KEYMAP:-}"
-    [ -n "$k" ] || k="$(_detect_localectl 'VC Keymap')"
     [ -n "$k" ] || k="$(_detect_localectl 'X11 Layout')"
+    if [ -z "$k" ]; then
+        k="$(_detect_localectl 'VC Keymap')"
+        [ -z "$k" ] || k="$(keymap_xkb "$k")"
+    fi
     printf '%s\n' "${k:-us}"
 }
 

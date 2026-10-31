@@ -25,6 +25,8 @@ end
 
 -- Written by Nix (modules/nixos/gpu.nix): GPU-specific env vars / cursor and monitor workarounds.
 require_if_present(paths.nusku .. "/gpu")
+-- Written by Nix (modules/home/hyprland.nix): the keyboard layout from settings.json.
+require_if_present(paths.nusku .. "/input")
 -- Written by Nix (modules/home/*.nix): session-start commands for picked apps.
 require_if_present(paths.nusku .. "/autostart")
 -- Per-machine overrides (monitors, input, extra binds, ...). Loaded last.

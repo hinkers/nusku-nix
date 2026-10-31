@@ -115,7 +115,24 @@ fake_panel() {
     [ "$output" = $'Australia/Brisbane\nen_AU.UTF-8\nde' ]
     stub localectl "printf '   System Locale: LANG=en_US.UTF-8\n       VC Keymap: uk\n      X11 Layout: gb\n'"
     run detect detect_keymap
-    [ "$output" = uk ]
+    [ "$output" = gb ] # the X11 layout first: the answer is an xkb layout
+}
+
+@test "detect_keymap: only a console keymap set: its xkb layout (uk is gb, de-latin1 is de)" {
+    stub localectl "printf '   System Locale: LANG=en_GB.UTF-8\n       VC Keymap: uk\n      X11 Layout: (unset)\n'"
+    run detect detect_keymap
+    [ "$output" = gb ]
+    stub localectl "printf '       VC Keymap: de-latin1-nodeadkeys\n      X11 Layout: n/a\n'"
+    run detect detect_keymap
+    [ "$output" = de ]
+    stub localectl "printf '       VC Keymap: fr\n'"
+    run detect detect_keymap
+    [ "$output" = fr ]
+}
+
+@test "keymap_xkb: console keymap names to xkb layouts; xkb names unchanged" {
+    run detect 'for k in uk sv-latin1 sg jp106 br-abnt2 us gb de "us,de" fr-latin9; do keymap_xkb "$k"; done'
+    [ "$output" = $'gb\nse\nch\njp\nbr\nus\ngb\nde\nus,de\nfr' ]
 }
 
 @test "detect_keymap: VC Keymap (unset), as on a fresh NixOS, falls back to the X11 layout" {

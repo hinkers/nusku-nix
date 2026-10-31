@@ -45,6 +45,12 @@ in
   xdg.configFile = linkTree "hypr" ../../config/hypr // linkTree "kitty" ../../config/kitty // {
     # nusku-arch's hyprland.lua loads <config>/nusku/gpu.lua (paths.nusku) when present.
     "nusku/gpu.lua".text = osConfig.nusku.internal.hyprGpuLua;
+    # The keyboard layout (settings.json "keymap", an xkb layout), loaded after config/hypr's
+    # input.lua and before local.lua, so local.lua can still change it.
+    "nusku/input.lua".text = ''
+      -- Nusku keyboard layout (generated from settings.json "keymap"; loaded by ~/.config/hypr/hyprland.lua)
+      hl.config({ input = { kb_layout = ${builtins.toJSON osConfig.nusku.keymap} } })
+    '';
     # Sunshine (modules/nixos/apps.nix): its user unit is WantedBy graphical-session.target,
     # which nothing reaches here (Hyprland runs without UWSM), so the session starts it. The
     # file is types.lines: other picks (Obsidian, browsers.nix) add their own block.

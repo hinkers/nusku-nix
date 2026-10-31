@@ -153,6 +153,21 @@ _q_check_timezone() {
     }
 }
 
+# An xkb layout (or a comma-separated list), as settings.json "keymap" is: not a console keymap
+# name such as uk (xkb's gb) or de-latin1 (de).
+_q_check_keymap() {
+    local xkb
+    xkb="$(keymap_xkb "$1")"
+    [ "$xkb" = "$1" ] || {
+        echo "$1 is a console keymap name: type the keyboard layout, $xkb."
+        return 1
+    }
+    [[ "$1" =~ ^[a-z][a-z0-9_]*(,[a-z][a-z0-9_]*)*$ ]] || {
+        echo "Type an xkb layout in lowercase, like us, gb or de (or a list: us,de)."
+        return 1
+    }
+}
+
 _q_check_device() {
     [[ "$1" =~ ^/dev/[^[:space:]]+$ ]] || {
         echo "Type the whole disk, e.g. /dev/sda (not a partition such as /dev/sda1)."
@@ -225,7 +240,7 @@ _q_change() {
             ;;
         timezone) _q_edit TIMEZONE "Time zone" "Like Europe/Paris or Australia/Brisbane." _q_check_timezone ;;
         locale) _q_edit LOCALE "Locale" "Language and formats, like en_AU.UTF-8." _q_check_word ;;
-        keymap) _q_edit KEYMAP "Keyboard" "Keyboard layout, like us, uk or de." _q_check_word ;;
+        keymap) _q_edit KEYMAP "Keyboard" "Keyboard layout (xkb), like us, gb or de." _q_check_keymap ;;
         boot)
             _q_pick BOOT_LOADER "Boot loader" "systemd-boot on a UEFI PC, GRUB on an older (BIOS) one." "${Q_BOOT[@]}"
             if [ "${NUSKU_ANSWERS[BOOT_LOADER]}" = grub ]; then

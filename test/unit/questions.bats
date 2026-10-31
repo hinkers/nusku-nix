@@ -135,6 +135,18 @@ BS5='\x7f\x7f\x7f\x7f\x7f'
     screen | grep -qF 'Unknown time zone Mars/Base'
 }
 
+@test "keyboard: an xkb layout; a console keymap name (uk) is refused with the xkb one (gb)" {
+    run menu '\e[B\e[B\e[B\e[B\n\x7f\x7fuk\n\x7f\x7fde-latin1\n\x7f\x7f\x7f\x7f\x7f\x7f\x7f\x7f\x7fus,de\n\e[F\n' ':'
+    [[ "$output" == *"KEYMAP=[us,de] "* ]]
+    screen | grep -qF 'uk is a console keymap name: type the keyboard layout, gb'
+    screen | grep -qF 'de-latin1 is a console keymap name: type the keyboard layout, de'
+    run menu '\e[B\e[B\e[B\e[B\n\x7f\x7fgb\n\e[F\n' ':'
+    [[ "$output" == *"KEYMAP=[gb] "* ]]
+    run menu '\e[B\e[B\e[B\e[B\n\x7f\x7fDE\n\x7f\x7fde\n\e[F\n' ':'
+    [[ "$output" == *"KEYMAP=[de] "* ]]
+    screen | grep -qF 'Type an xkb layout'
+}
+
 @test "boot loader: GRUB asks for its disk; systemd-boot clears it" {
     run menu '\e[B\e[B\e[B\e[B\e[B\n\e[B\n/dev/sda\n\e[F\n' ':'
     [[ "$output" == *"BOOT_LOADER=[grub] BOOT_DEVICE=[/dev/sda] "* ]]

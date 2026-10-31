@@ -24,7 +24,7 @@ in
     min.hardware.enableRedistributableFirmware && builtins.any (p: lib.hasPrefix "sof-firmware" p.name) min.hardware.firmware.paths;
   "timezone, locale and keymap from settings" =
     full.time.timeZone == "Australia/Brisbane" && full.i18n.defaultLocale == "en_AU.UTF-8"
-    && min.console.keyMap == "us" && min.time.timeZone == "UTC";
+    && min.services.xserver.xkb.layout == "us" && min.console.useXkbConfig && min.time.timeZone == "UTC";
   "user is a wheel/networkmanager/video/audio zsh user" =
     let u = min.users.users.nusku; in
     u.isNormalUser && u.shell == hosts.vm-min.pkgs.zsh && min.programs.zsh.enable
