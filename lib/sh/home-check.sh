@@ -4,16 +4,19 @@
 # stops the switch. Before the build, install.sh lists them and offers to move them aside to a
 # timestamped folder, or to stop. Nothing is ever deleted.
 #
-# What to look at is lib/home-paths.txt (test/eval/home-paths.nix keeps it matched to the Home
-# Manager config):
+# What to look at: the entries of lib/home-paths.txt (test/eval/home-paths.nix keeps it matched to
+# the Home Manager config) that cover one of this host's own Home Manager targets, read with one
+# `nix eval` of its home.file, so apps the host doesn't pick are never looked at. Entries:
 #   name     in the way when it exists and isn't a link into the Nix store
 #   name/    a directory: in the way when it has files but no link into the Nix store anywhere
 #            inside (a directory Home Manager already fills has its links in it)
 #   name*    each existing path starting with name, checked like `name`
 #
-#   home_in_the_way          the paths in the way, relative to $HOME, one per line
-#   home_move_aside PATH...  move them into ~/nusku-backup-<time>/ (same layout); prints that folder
-#   home_check               the whole step: list, explain, ask (Move or Stop)
+#   home_targets HOST USER     the host's Home Manager targets, one per line (nix eval)
+#   home_in_the_way TARGETS    the paths in the way, relative to $HOME, one per line; TARGETS is a
+#                              file of the host's targets
+#   home_move_aside PATH...    move them into ~/nusku-backup-<time>/ (same layout); prints that folder
+#   home_check HOST USER       the whole step: list, explain, ask (Move or Stop)
 #
 # Sourced, not executed. Needs lib/sh/log.sh, and for home_check lib/sh/tui.sh and tui_usable
 # (install.sh). home_check sets HOME_BACKUP to the folder it moved things to.
@@ -40,11 +43,31 @@ _home_blocks() {
     return 0
 }
 
+home_targets() {
+    nix eval --json "$NUSKU_ROOT#nixosConfigurations.\"$1\".config.home-manager.users.\"$2\".home.file" \
+        --apply 'f: map (x: x.target) (builtins.attrValues f)' | jq -r '.[]'
+}
+
+# _home_covers ENTRY TARGETS_FILE: status 0 when ENTRY covers one of the targets (as
+# test/eval/home-paths.nix reads entries).
+_home_covers() {
+    local e="$1" t
+    while IFS= read -r t; do
+        case "$e" in
+            */) [ "$t" = "${e%/}" ] || [[ "$t" == "$e"* ]] ;;
+            *"*") [[ "$t" == "${e%\*}"* ]] ;;
+            *) [ "$t" = "$e" ] ;;
+        esac && return 0
+    done <"$2"
+    return 1
+}
+
 home_in_the_way() {
-    local list="$NUSKU_ROOT/lib/home-paths.txt" entry path
+    local list="$NUSKU_ROOT/lib/home-paths.txt" targets="$1" entry path
     [ -r "$list" ] || return 0
     while IFS= read -r entry; do
         case "$entry" in "" | "#"*) continue ;; esac
+        _home_covers "$entry" "$targets" || continue
         case "$entry" in
             */) _home_blocks "$HOME/${entry%/}" 1 && printf '%s\n' "${entry%/}" ;;
             *"*")
@@ -70,8 +93,15 @@ home_move_aside() {
 
 home_check() {
     local -a paths=()
-    local p backup shown=""
-    mapfile -t paths < <(home_in_the_way)
+    local p backup shown="" targets
+    targets="$(mktemp)"
+    if ! home_targets "$1" "$2" >"$targets"; then
+        rm -f "$targets"
+        log_warn "Could not list hosts/$1's Home Manager files, so your home isn't checked first (the build reports any collision)."
+        return 0
+    fi
+    mapfile -t paths < <(home_in_the_way "$targets")
+    rm -f "$targets"
     [ "${#paths[@]}" -gt 0 ] || return 0
     log_warn "These are in your home already and weren't made by Home Manager. It won't replace them, so the build would stop:"
     for p in "${paths[@]}"; do

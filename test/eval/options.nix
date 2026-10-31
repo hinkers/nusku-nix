@@ -25,12 +25,14 @@ in
     && hosts.vm-luks.config.system.stateVersion == "25.05";
   "stateVersion: hosts recorded before the key existed stay on 26.05 (system and home)" =
     min.system.stateVersion == "26.05" && (hmOf min).home.stateVersion == "26.05";
-  # Home Manager's state starts at the first Nusku build (this flake's Home Manager), and below
-  # 26.05 its defaults change (Firefox's profile would move to ~/.mozilla/firefox).
-  "stateVersion: home follows the install, never below 26.05" =
+  # Home Manager's state starts at Nusku's first build, with this flake's Home Manager: its
+  # stateVersion is fixed, whatever release NixOS was installed from (a newer ISO's release could
+  # be one this Home Manager doesn't know).
+  "stateVersion: home is always 26.05; the system follows the recorded release" =
+    let at = v: (hosts.vm-full.extendModules { modules = [{ nusku.stateVersion = lib.mkForce v; }]; }).config; in
     (hmOf full).home.stateVersion == "26.05"
-    && (hmOf (hosts.vm-full.extendModules { modules = [{ nusku.stateVersion = lib.mkForce "26.11"; }]; }).config)
-      .home.stateVersion == "26.11";
+    && builtins.all (v: (hmOf (at v)).home.stateVersion == "26.05" && (at v).system.stateVersion == v)
+      [ "26.11" "27.05" ];
   "vm-full panel scale is 1.25" = (builtins.head full.nusku.panels).scale == 1.25;
   "fixtures are not nixosConfigurations" =
     !(self.nixosConfigurations ? vm-min) && !(self.nixosConfigurations ? vm-full);

@@ -106,8 +106,8 @@ let
       default = "26.05";
       description = ''
         The NixOS release this machine was installed with (install.sh reads it from the
-        installed system): system.stateVersion, and home.stateVersion from 26.05 on. Never change
-        it on an existing machine.
+        installed system): system.stateVersion (home.stateVersion is fixed at 26.05). Never
+        change it on an existing machine.
       '';
     };
   };

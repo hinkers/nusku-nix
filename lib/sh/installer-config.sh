@@ -12,7 +12,9 @@
 # registry, which a bare <nixpkgs> falls back to); lib/installer-config.nix picks the settings out
 # as JSON; installer_nix writes them as a small Nix file. lib/hosts.nix imports it when it is there.
 #
-#   installer_probe            NUSKU_INSTALLER_JSON from this machine ("" without configuration.nix)
+#   installer_probe [KEEP]     NUSKU_INSTALLER_JSON from this machine ("" without configuration.nix).
+#                              When it doesn't evaluate: stops, unless KEEP (an existing
+#                              installer.nix) is given, which is then kept with a warning
 #   installer_nix              that JSON as installer.nix (nothing when there is nothing to carry)
 #   host_write_installer NAME  write hosts/NAME/installer.nix, or remove it when nothing to carry
 #   installer_state_version    the release NixOS was installed with (settings.json "stateVersion"):
@@ -38,7 +40,7 @@ _installer_eval() {
 }
 
 installer_probe() {
-    local conf out err
+    local keep="${1:-}" conf out err
     conf="$(_installer_conf)"
     NUSKU_INSTALLER_JSON=""
     if [ ! -r "$conf" ]; then
@@ -51,6 +53,11 @@ installer_probe() {
         log_info "This system's nixpkgs channel is not available; evaluating with the flake's nixpkgs"
         if ! out="$(_installer_eval "((builtins.getFlake \"git+file://$NUSKU_ROOT\").inputs.nixpkgs + \"/nixos\")" 2>>"$err")"; then
             cat "$err" >>"$NUSKU_LOG"
+            if [ -n "$keep" ]; then
+                log_warn "Could not evaluate $conf ($(tail -n 1 "$err")); keeping ${keep#"$NUSKU_ROOT"/} as it is."
+                rm -f "$err"
+                return 0
+            fi
             die "Could not evaluate $conf, so its boot and encryption settings (LUKS, GRUB) can't be carried over and the build could leave this machine unbootable:
 $(tail -n 5 "$err")
 Fix $conf (check it with: sudo nixos-rebuild dry-build), then run ./install.sh again."

@@ -24,6 +24,9 @@ let
 in
 {
   "home-paths: the list is not empty" = builtins.length entries > 20;
+  # install.bats' stubbed `nix eval` of a host's targets answers with this file.
+  "test/fixtures/home-targets.json is hyperv-small's Home Manager targets" =
+    builtins.fromJSON (builtins.readFile ../fixtures/home-targets.json) == targetsOf hosts.hyperv-small.config;
   "home-paths: every Home Manager target is covered by lib/home-paths.txt" =
     lib.warnIf (uncovered != [ ]) "not in lib/home-paths.txt: ${toString uncovered}" (uncovered == [ ]);
   "home-paths: every entry is a Home Manager target (no stale entries)" =

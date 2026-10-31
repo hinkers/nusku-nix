@@ -36,6 +36,10 @@ setup() {
 printf 'nix %s\n' "$*" >>"$CALLS"
 printf '%s\n' "nix NIX_CONFIG=$(printf '%s\n' "$NIX_CONFIG" | tr '\n' ' ')" >>"$CALLS"
 case "$*" in
+    *home.file*)
+        cat "$HM_TARGETS"
+        exit 0
+        ;;
     *installer-config.nix*)
         case "$*" in *"builtins.nixPath"*)
             [ -z "${NO_CHANNEL:-}" ] || { echo "error: no nixpkgs channel on NIX_PATH" >&2; exit 1; } ;;
@@ -80,6 +84,9 @@ EOF
     export NUSKU_NIXOS_CONFIG="$BATS_TEST_TMPDIR/configuration.nix"
     : >"$NUSKU_NIXOS_CONFIG"
     export INSTALLER_OUT="$PWD/test/fixtures/installer/plain/evaluated.json"
+    # The host's Home Manager targets (`nix eval` of home.file): hyperv-small's, which picks
+    # Neovim and Firefox and uses the mauve accent.
+    export HM_TARGETS="$PWD/test/fixtures/home-targets.json"
     export NUSKU_TUI_IN="$BATS_TEST_TMPDIR/keys" NUSKU_TUI_OUT="$BATS_TEST_TMPDIR/screen"
     : >"$NUSKU_TUI_IN"
     export XDG_STATE_HOME="$BATS_TEST_TMPDIR/state"
@@ -569,4 +576,40 @@ leftovers() {
     [ "$status" -eq 0 ]
     [ ! -s "$NUSKU_TUI_OUT" ]
     [[ "$output" != *"weren't made by Home Manager"* ]]
+}
+
+@test "home check: only this host's real targets; an app it doesn't pick is not flagged" {
+    seed_host laptop
+    jq 'map(select(test("nvim|mozilla") | not))' "$HM_TARGETS" >"$BATS_TEST_TMPDIR/targets.json"
+    export HM_TARGETS="$BATS_TEST_TMPDIR/targets.json"
+    mkdir -p "$HOME/.config/nvim" "$HOME/.config/mozilla/firefox"
+    echo 'mine' >"$HOME/.config/nvim/init.lua"
+    echo 'mine' >"$HOME/.config/mozilla/firefox/profiles.ini"
+    echo 'old' >"$HOME/.zshrc"
+    keys '\n'
+    run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"~/.zshrc"* ]]
+    [[ "$output" != *"[WARN]   ~/.config/nvim"* && "$output" != *"[WARN]   ~/.config/mozilla"* ]]
+    [ "$(cat "$HOME/.config/nvim/init.lua")" = mine ] && [ -f "$HOME/.config/mozilla/firefox/profiles.ini" ]
+    grep -qF "nix eval --json $(realpath "$REPO")#nixosConfigurations.\"laptop\".config.home-manager.users.\"tester\".home.file" "$CALLS"
+}
+
+@test "--host whose configuration.nix no longer evaluates keeps its installer.nix, with a warning" {
+    seed_host laptop
+    cp "$FIXTURES/hosts/vm-swap/installer.nix" "$REPO/hosts/laptop/"
+    git -C "$REPO" add hosts/laptop && owner commit -q -m "installed"
+    FAIL_EVAL=1 run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Could not evaluate $NUSKU_NIXOS_CONFIG"*"keeping hosts/laptop/installer.nix"* ]]
+    diff "$REPO/hosts/laptop/installer.nix" "$FIXTURES/hosts/vm-swap/installer.nix"
+    grep -qF "nixos-rebuild switch --flake $REPO#laptop" "$CALLS"
+}
+
+@test "a first run whose configuration.nix does not evaluate still stops" {
+    keys '\n\x7f\x7f\x7f\x7f\x7finstaller-laptop\n\e[F\n'
+    FAIL_EVAL=1 run install --no-reboot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Could not evaluate $NUSKU_NIXOS_CONFIG"* ]]
+    ! grep -q nixos-rebuild "$CALLS" || false
 }

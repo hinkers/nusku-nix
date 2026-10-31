@@ -155,7 +155,18 @@ preflight() {
     catalogue_load
     # A new or reinstalled machine: what the NixOS installer set up for booting (LUKS, GRUB).
     # Read before the questions, where it gives GRUB's disk.
-    case "$mode" in first | host) installer_probe ;; esac
+    # A known host keeps its installer.nix if configuration.nix no longer evaluates (an existing
+    # Nusku machine, its NIX_PATH now flake:nixpkgs); a new one must not build without it.
+    case "$mode" in
+        first) installer_probe ;;
+        host)
+            if [ -f "$NUSKU_ROOT/hosts/$name/installer.nix" ]; then
+                installer_probe "$NUSKU_ROOT/hosts/$name/installer.nix"
+            else
+                installer_probe
+            fi
+            ;;
+    esac
 }
 
 step_questions() {
@@ -233,7 +244,7 @@ record_checkout() {
 # Leftovers where Home Manager puts its files would stop the switch: move them aside, or stop.
 step_home() {
     step "Your home"
-    home_check
+    home_check "$name" "${NUSKU_ANSWERS[USER]}"
     [ -z "$HOME_BACKUP" ] ||
         NOTES+=("Files that were in Home Manager's way are in $HOME_BACKUP; copy back what you need.")
 }
