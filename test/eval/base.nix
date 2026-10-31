@@ -41,5 +41,7 @@ in
   "polkit on" = min.security.polkit.enable;
   "keyring and online accounts" =
     min.services.gnome.gnome-keyring.enable && min.services.gnome.gnome-online-accounts.enable;
-  "avahi off" = !min.services.avahi.enable;
+  "avahi off by default" = !min.services.avahi.enable;
+  "another module can enable avahi" =
+    (hosts.vm-min.extendModules { modules = [ { services.avahi.enable = true; } ]; }).config.services.avahi.enable;
 }

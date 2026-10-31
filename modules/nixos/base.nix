@@ -63,5 +63,5 @@ in
   security.polkit.enable = true;
   services.gnome.gnome-keyring.enable = true;
   services.gnome.gnome-online-accounts.enable = true; # calendar sync (Task 5)
-  services.avahi.enable = false; # an app that needs mDNS turns it on (Task 7)
+  services.avahi.enable = lib.mkDefault false; # an app that needs mDNS turns it on (Task 7)
 }
