@@ -75,14 +75,12 @@ source "$NUSKU_ROOT/lib/sh/detect.sh"
 source "$NUSKU_ROOT/lib/sh/tui.sh"
 # shellcheck source=lib/sh/questions.sh
 source "$NUSKU_ROOT/lib/sh/questions.sh"
+# shellcheck source=lib/sh/rebuild.sh
+source "$NUSKU_ROOT/lib/sh/rebuild.sh"
 
 # A fresh NixOS has flakes switched off: every nix and nixos-rebuild call here gets them (once:
 # the re-run inside `nix shell` below inherits them).
-case "${NIX_CONFIG:-}" in
-    *"extra-experimental-features = nix-command flakes"*) ;;
-    *) NIX_CONFIG="${NIX_CONFIG:+$NIX_CONFIG$'\n'}extra-experimental-features = nix-command flakes"$'\n'"warn-dirty = false" ;;
-esac
-export NIX_CONFIG
+nix_flakes_config
 
 [ -e "${NUSKU_NIXOS_MARKER:-/etc/NIXOS}" ] ||
     die "nusku-nix only installs on NixOS, and this does not look like NixOS. Install NixOS (minimal) first."
@@ -169,8 +167,9 @@ step_questions() {
             ;;
         host)
             host_load "$name"
-            [ "${NUSKU_ANSWERS[USER]}" = "$(detect_user)" ] ||
-                log_warn "hosts/$name is for user ${NUSKU_ANSWERS[USER]}, but you are $(detect_user). That user gets no password from the build: set one (sudo passwd ${NUSKU_ANSWERS[USER]}) before you reboot."
+            # The build makes this account without a password: it has to exist already.
+            _q_check_user "${NUSKU_ANSWERS[USER]}" >/dev/null ||
+                die "hosts/$name is for user ${NUSKU_ANSWERS[USER]}, who does not exist on this machine, so the build would make an account nobody can log in to. Create it first (sudo useradd -m ${NUSKU_ANSWERS[USER]} && sudo passwd ${NUSKU_ANSWERS[USER]}), or change \"user\" in hosts/$name/settings.json to your login."
             ;;
     esac
 }
@@ -211,7 +210,9 @@ collect_notes() {
 
 step_build() {
     step "Build"
-    run sudo env NIX_CONFIG="$NIX_CONFIG" nixos-rebuild switch --flake "$NUSKU_ROOT#$name"
+    # As the user (sudo only activates); see lib/sh/rebuild.sh.
+    run_soft nusku_rebuild "$NUSKU_ROOT" "$name" ||
+        die "The build failed (see above). hosts/$name is saved and committed, so fix the problem, then run: ./install.sh --host $name"
 }
 
 step_summary() {

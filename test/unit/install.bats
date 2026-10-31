@@ -1,5 +1,5 @@
 # install.sh end to end, in a throwaway git repo (a copy of the installer) with real git and
-# stubs for nix, sudo (which records the nixos-rebuild call instead of running it), lspci and
+# stubs for nix, nixos-rebuild and sudo (which record their calls), lspci and
 # systemd-detect-virt. Detection of user, time zone and so on comes from the environment.
 #
 # The first test's output must equal test/fixtures/hosts/installer-laptop/settings.json, which
@@ -36,8 +36,17 @@ EOF
     cat >"$STUBS/sudo" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$(printf 'sudo %s\n' "$*" | tr '\n' ' ')" >>"$CALLS"
-case "$*" in *nixos-rebuild*) [ -z "${FAIL_BUILD:-}" ] || { echo "error: build failed"; exit 1; } ;; esac
 exit 0
+EOF
+    # nixos-rebuild: --help says whether it has --sudo (OLD_REBUILD: an older one without it).
+    cat >"$STUBS/nixos-rebuild" <<'EOF'
+#!/bin/sh
+if [ "$1" = --help ]; then
+    if [ -n "${OLD_REBUILD:-}" ]; then echo "  --use-remote-sudo  use sudo"; else echo "  --sudo  use sudo"; fi
+    exit 0
+fi
+printf '%s\n' "$(printf 'nixos-rebuild %s NIX_CONFIG=%s\n' "$*" "$NIX_CONFIG" | tr '\n' ' ')" >>"$CALLS"
+[ -z "${FAIL_BUILD:-}" ] || { echo "error: build failed"; exit 1; }
 EOF
     printf '#!/bin/sh\ncat "$LSPCI_OUT"\n' >"$STUBS/lspci"
     printf '#!/bin/sh\necho none\nexit 1\n' >"$STUBS/systemd-detect-virt"
@@ -93,7 +102,8 @@ set_apps() {
     [ "$(last_subject)" = "host: installer-laptop" ]
     [ "$(git -C "$REPO" show --name-only --format= HEAD)" = $'hosts/installer-laptop/hardware-configuration.nix\nhosts/installer-laptop/settings.json' ]
     [ -z "$(git -C "$REPO" status --porcelain)" ]
-    grep -qxF "sudo env NIX_CONFIG=extra-experimental-features = nix-command flakes warn-dirty = false nixos-rebuild switch --flake $REPO#installer-laptop " "$CALLS"
+    grep -qxF "nixos-rebuild switch --flake $REPO#installer-laptop --sudo NIX_CONFIG=extra-experimental-features = nix-command flakes warn-dirty = false " "$CALLS"
+    ! grep -q '^sudo.*nixos-rebuild' "$CALLS" || false # built as the user; sudo only activates
     [[ "$output" == *"Nusku is installed."* ]]
 }
 
@@ -104,14 +114,14 @@ set_apps() {
     grep -qxF "nix eval --json $REPO#lib.catalogue" "$CALLS"
     grep -q '^nix NIX_CONFIG=' "$CALLS"
     ! grep '^nix NIX_CONFIG=' "$CALLS" | grep -vF 'extra-experimental-features = nix-command flakes' || false
-    grep -qF 'sudo env NIX_CONFIG=extra-experimental-features = nix-command flakes' "$CALLS"
+    grep -qF "nixos-rebuild switch --flake $REPO#installer-laptop --sudo NIX_CONFIG=extra-experimental-features = nix-command flakes" "$CALLS"
 }
 
 @test "the re-run inside nix shell does not add the flakes setting twice" {
     seed_host laptop
     NIX_CONFIG=$'extra-experimental-features = nix-command flakes\nwarn-dirty = false' run install --host laptop --no-reboot
     [ "$status" -eq 0 ]
-    grep -qxF "sudo env NIX_CONFIG=extra-experimental-features = nix-command flakes warn-dirty = false nixos-rebuild switch --flake $REPO#laptop " "$CALLS"
+    grep -qxF "nixos-rebuild switch --flake $REPO#laptop --sudo NIX_CONFIG=extra-experimental-features = nix-command flakes warn-dirty = false " "$CALLS"
 }
 
 @test "it re-runs itself under nix shell with the flake's pinned jq, git and pciutils" {
@@ -271,12 +281,39 @@ set_apps() {
     grep -qxF 'sudo systemctl reboot ' "$CALLS"
 }
 
+@test "an older nixos-rebuild (no --sudo) gets --use-remote-sudo" {
+    seed_host laptop
+    OLD_REBUILD=1 run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    grep -qF "nixos-rebuild switch --flake $REPO#laptop --use-remote-sudo NIX_CONFIG=" "$CALLS"
+}
+
 @test "a failed build fails the install and points at the log" {
     seed_host laptop
     FAIL_BUILD=1 run install --host laptop --no-reboot
     [ "$status" -eq 1 ]
     [[ "$output" == *"Nusku install failed during step: Build"* ]]
     [[ "$output" == *"Full log: "* ]]
+}
+
+@test "a failed first build says how to retry: ./install.sh --host NAME" {
+    keys '\n\x7f\x7f\x7f\x7f\x7finstaller-laptop\n\e[F\n'
+    FAIL_BUILD=1 run install --no-reboot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"hosts/installer-laptop is saved and committed, so fix the problem, then run: ./install.sh --host installer-laptop"* ]]
+    [ "$(last_subject)" = "host: installer-laptop" ]
+    FAIL_BUILD= run install --host installer-laptop --no-reboot
+    [ "$status" -eq 0 ]
+}
+
+@test "--host refuses a host whose user does not exist here" {
+    seed_host laptop
+    local f="$REPO/hosts/laptop/settings.json"
+    jq '.user = "nosuchuser"' "$f" >"$f.new" && mv "$f.new" "$f" && owner commit -q -am "other user"
+    run install --host laptop --no-reboot
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"hosts/laptop is for user nosuchuser, who does not exist on this machine"*"sudo passwd nosuchuser"*"hosts/laptop/settings.json"* ]]
+    ! grep -q nixos-rebuild "$CALLS" || false
 }
 
 @test "refuses root, refuses outside NixOS, refuses mixed options" {
