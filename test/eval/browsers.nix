@@ -29,7 +29,13 @@ let
   brave = pick [ "brave" ];
   librewolf = pick [ "librewolf" ];
   none = pick [ ];
-  obsidianThemes = c: map (t: t.pkg) ((hmOf c).programs.obsidian.defaultSettings.themes or [ ]);
+  # nusku-obsidian-theme (in the user's packages), its activation step and its autostart.
+  themer = c: lib.findFirst (p: (p.pname or p.name or "") == "nusku-obsidian-theme") null
+    (hmOf c).home.packages;
+  activation = c: (hmOf c).home.activation.nuskuObsidianTheme or null;
+  autostart = c: (hmOf c).xdg.configFile."nusku/autostart.lua".text or "";
+  obsidianOnly = pick [ "obsidian" ];
+  noCtx = builtins.unsafeDiscardStringContext; # hasInfix can't take store-path strings
 in
 {
   # --- Firefox -------------------------------------------------------------------------------
@@ -45,14 +51,16 @@ in
     (ffColor full).firstRunDone or false && (ffColor full) ? theme
     && (ffColor mauve) ? theme && (ffColor full).theme != (ffColor mauve).theme
     && hasFile ffStorage full;
-  "firefox: Firefox Color itself installed by policy" =
-    hm.programs.firefox.policies.ExtensionSettings.${colorId}.installation_mode or ""
-    == "force_installed";
+  "firefox: Firefox Color itself installed by policy, from a pinned copy in the store" =
+    let e = hm.programs.firefox.policies.ExtensionSettings.${colorId} or { }; in
+    e.installation_mode or "" == "force_installed"
+    && lib.hasPrefix "file:///nix/store/" (e.install_url or "")
+    && lib.hasSuffix "-firefox_color-2.1.7.xpi" e.install_url;
   "firefox: installed once, in the user's profile" =
     count "firefox" (homeNames full) == 1 && count "firefox" (homeNames all) == 1
     && !(builtins.elem "firefox" (sysNames all));
   "firefox: no Firefox or catppuccin warnings" =
-    !(builtins.any (w: lib.hasInfix "irefox" w) (full.warnings ++ hm.warnings));
+    !(builtins.any (w: lib.hasInfix "firefox" (lib.toLower w)) (full.warnings ++ hm.warnings));
 
   # --- Chromium and Brave --------------------------------------------------------------------
   "chromium: HM programs.chromium with catppuccin's Mocha extension" =
@@ -73,9 +81,29 @@ in
     && count "librewolf" (homeNames all) == 1;
 
   # --- Obsidian ------------------------------------------------------------------------------
-  "obsidian: HM programs.obsidian with catppuccin's theme as the vault default" =
-    hm.programs.obsidian.enable && hm.catppuccin.obsidian.enable
-    && obsidianThemes full == [ hm.catppuccin.sources.obsidian ];
+  "obsidian: HM programs.obsidian installs it; catppuccin/nix's HM-vault theming is off" =
+    hm.programs.obsidian.enable && !hm.catppuccin.obsidian.enable
+    && hm.programs.obsidian.defaultSettings.themes == null
+    && !(builtins.any (lib.hasInfix ".obsidian/") (files full));
+  "obsidian: nusku-obsidian-theme with jq on its PATH and catppuccin's theme" =
+    themer full != null
+    && builtins.any (l: lib.hasPrefix "export PATH=" l && lib.hasInfix "-jq-" l)
+      (lib.splitString "\n" (themer full).drvAttrs.text)
+    && lib.hasInfix (noCtx "NUSKU_OBSIDIAN_THEME=${hm.catppuccin.sources.obsidian}")
+      (themer full).drvAttrs.text;
+  "obsidian: themed on each rebuild, after obsidian.json is merged; never fails the switch" =
+    let a = activation full; in
+    a != null && builtins.elem "linkGeneration" a.after && builtins.elem "obsidian" a.after
+    && lib.hasInfix (noCtx "${themer full}/bin/nusku-obsidian-theme || true") a.data;
+  "obsidian: themed at each login (Hyprland autostart, loaded by hyprland.lua)" =
+    lib.hasInfix ''hl.exec_cmd("nusku-obsidian-theme")'' (autostart full)
+    && lib.hasInfix "hyprland.start" (autostart full)
+    && lib.hasInfix ''require_if_present(paths.nusku .. "/autostart")''
+      (builtins.readFile ../../config/hypr/hyprland.lua);
+  "obsidian not picked: no themer, activation step or autostart" =
+    builtins.all (c: themer c == null && activation c == null && autostart c == "")
+      [ none mauve chromium ]
+    && themer obsidianOnly != null && activation obsidianOnly != null;
   "obsidian: installed once, in the user's profile" =
     count "obsidian" (homeNames full) == 1 && !(builtins.elem "obsidian" (sysNames full))
     && !(builtins.elem "obsidian" (sysNames all));
