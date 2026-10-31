@@ -8,6 +8,7 @@
     ./gpu.nix
     ./desktop.nix
     ./apps.nix
+    ./langs.nix
   ];
 
   networking.hostName = config.nusku.hostname;
