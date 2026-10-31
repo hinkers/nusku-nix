@@ -11,6 +11,7 @@
     ./menus.nix
     ./shell.nix
     ./browsers.nix
+    ./app-themes.nix
     ./neovim.nix
     ./langs.nix
     ./commands.nix

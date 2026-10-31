@@ -14,6 +14,9 @@
 .config/kitty/mocha.conf
 .config/fastfetch/config.jsonc
 .config/btop/themes/catppuccin_mocha.theme
+.config/bat/config
+.config/bat/themes/Catppuccin Mocha.tmTheme
+.config/eza/theme.yml
 
 # Hyprland and the bar, notifications and menus
 .config/hypr/
@@ -44,6 +47,9 @@
 .mozilla/native-messaging-hosts
 .config/chromium/External Extensions/
 .config/BraveSoftware/Brave-Browser/External Extensions/
+.config/zathura/catppuccin-mocha
+.config/obs-studio/themes/Catppuccin.obt
+.config/obs-studio/themes/Catppuccin_Mocha.ovt
 
 # Theme: GTK, Qt, cursors, fonts
 .config/gtk-3.0/gtk.css

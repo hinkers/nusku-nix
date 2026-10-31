@@ -242,8 +242,12 @@ The desktop looks and works the same. What changed:
   WordCraft, SoundCraft, DeckCraft, CADCraft, GridCraft), updated when nixpkgs updates them.
   FilmCraft, EffectCraft, DesignCraft and FigCraft aren't available.
 - **Bitwarden and LibreWolf** come from nixpkgs instead of Flatpak.
-- **Also themed:** Firefox, Chromium, Brave and Obsidian (see above), and the GRUB boot menu (on
-  machines that boot with GRUB) and the text console.
+- **Also themed:** Firefox, Chromium, Brave and Obsidian (see above), bat, fzf and eza, lazygit,
+  Zathura, MangoHud and OBS when picked, and the GRUB boot menu (on machines that boot with
+  GRUB) and the text console. lazygit, Zathura and MangoHud keep their config files yours:
+  Nusku writes `~/.config/lazygit/config.yml`, `zathura/zathurarc` and `MangoHud/MangoHud.conf`
+  only when they don't exist yet, so an existing one stays as it is (unthemed). OBS gets the
+  Catppuccin themes, but you pick **Catppuccin Mocha** once in Settings → Appearance.
 - **No backups folder:** Nusku doesn't copy your files aside. Home Manager refuses to replace a
   file it didn't make (the rebuild reports it), so nothing is lost.
 - **Snapper** covers only `/home`; the system rolls back through the boot menu.

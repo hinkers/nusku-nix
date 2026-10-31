@@ -1,7 +1,8 @@
 # The shell and terminal tools: nusku-arch's zshrc/zprofile (zsh itself is the login shell,
 # modules/nixos/base.nix) and Starship config, the fastfetch greeting (nusku-fetch; a random
 # Gen 1-3 Pokémon via krabby when the `pokemon` app is picked), btop (nusku-arch theme, writable
-# config) and Yazi (picked app; catppuccin/nix theme in the accent, Papirus-friendly launcher icon).
+# config), bat/fzf/eza (catppuccin/nix themes) and Yazi (picked app; catppuccin/nix theme in the
+# accent, Papirus-friendly launcher icon).
 # ~/.config/nusku/local.zsh is the user's (created in hyprland.nix).
 { osConfig, config, lib, pkgs, ... }:
 let
@@ -67,12 +68,16 @@ in
     };
   };
 
+  # bat (the zshrc's `cat`), fzf (its key bindings) and eza (its `ls`) through HM's programs, so
+  # catppuccin/nix themes them: bat's config and Mocha theme, fzf's FZF_DEFAULT_OPTS_FILE, eza's
+  # theme.yml in the accent. HM's zsh is off, so these add no shell setup of their own.
+  programs.bat.enable = true;
+  programs.fzf.enable = true;
+  programs.eza.enable = true;
+
   home.packages = (with pkgs; [
     btop
     starship
-    fzf
-    bat
-    eza
     zoxide
     fastfetch
   ]) ++ [ nusku-fetch ] ++ lib.optional (picked "pokemon") pkgs.krabby;

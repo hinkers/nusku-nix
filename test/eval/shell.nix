@@ -34,6 +34,14 @@ in
     && !(builtins.any (f: lib.hasSuffix "local.zsh" f.target) (builtins.attrValues hm.home.file))
     && has "local.zsh" (lib.concatStrings (map (e: e.data) (builtins.attrValues hm.home.activation)));
 
+  # --- bat, fzf, eza -------------------------------------------------------------------------
+  "bat, fzf, eza: HM programs, themed by catppuccin/nix (eza in the accent)" =
+    builtins.all (p: hm.programs.${p}.enable && hm.catppuccin.${p}.enable) [ "bat" "fzf" "eza" ]
+    && hmP.programs.bat.config.theme == "Catppuccin Mocha"
+    && hmP.xdg.configFile ? "bat/themes/Catppuccin Mocha.tmTheme"
+    && has "catppuccin-fzf-mocha.rc" hmP.home.sessionVariables.FZF_DEFAULT_OPTS_FILE
+    && has "catppuccin-mocha-peach.yml" (toString hmP.xdg.configFile."eza/theme.yml".source);
+
   # --- starship ------------------------------------------------------------------------------
   "starship: nusku-arch config linked; catppuccin's starship module off" =
     hm.xdg.configFile."starship.toml".source == ../../config/starship.toml
