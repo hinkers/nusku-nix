@@ -572,6 +572,16 @@ running waybar && echo 'autostart.lua: waybar' || ok=1
 [ -f ~/.config/nusku/autostart.lua ] && echo 'nusku/autostart.lua present'
 exit $ok
 '@
+# settings.json "keymap" is an xkb layout: Hyprland's from the generated nusku/input.lua.
+Invoke-Check 'keyboard: the settings layout in Hyprland (nusku/input.lua)' (@'
+grep -F 'kb_layout = "@KM@"' ~/.config/nusku/input.lua || { echo 'nusku/input.lua lacks kb_layout "@KM@"'; exit 1; }
+r=$(hyprctl getoption input:kb_layout 2>&1 | head -1); echo "hyprctl: $r"
+case "$r" in *@KM@*) exit 0 ;; *) exit 3 ;; esac
+'@ -replace '@KM@', $settingsObj.keymap)
+if (Test-App 'sunshine') {
+    # Its unit's graphical-session.target is never reached; nusku/autostart.lua starts it.
+    Invoke-Check 'sunshine: started with the session' 'systemctl --user is-active sunshine'
+}
 Invoke-Check 'session PATH (Hyprland children)' @'
 p=$(procs waybar | head -1); [ -n "$p" ] || { echo 'no waybar to read'; exit 1; }
 path=$(environ_of "$p" | sed -n 's/^PATH=//p')
@@ -745,6 +755,14 @@ d="$HOME/.local/share/nvim"
 [ ! -e "$d/mason" ] || { echo "$d/mason exists"; exit 1; }
 [ ! -e "$d/site/parser" ] || { echo "$d/site/parser exists"; exit 1; }
 echo 'neither exists'
+'@
+    Invoke-Check 'neovim: blink.cmp from Nix, its fuzzy library from the store (nothing downloaded)' @'
+[ ! -e "$HOME/.local/share/nvim/lazy/blink.cmp" ] || { echo 'lazy.nvim cloned blink.cmp'; exit 1; }
+n=$(find "$HOME/.local/share/nvim" -name 'libblink_cmp_fuzzy*' | wc -l)
+[ "$n" -eq 0 ] || { echo "$n fuzzy libraries under ~/.local/share/nvim"; exit 1; }
+out=$(timeout 120 nvim --headless "+lua local p = require('lazy.core.config').plugins['blink.cmp']; require('lazy').load({ plugins = { 'blink.cmp' } }); io.stdout:write('dir=' .. p.dir .. ' rust=' .. tostring(pcall(require, 'blink.cmp.fuzzy.rust')) .. '\n')" +qa </dev/null 2>&1)
+echo "$out" | grep -E '^dir='
+echo "$out" | grep -qE '^dir=/nix/store/.*blink.cmp.* rust=true$'
 '@
     Invoke-Check 'neovim: lockfile copy mode 644, the user''s' @'
 s=$(stat -c '%a %U' ~/.local/share/nvim/lazy-lock.json); echo "$s"; [ "$s" = "644 $(id -un)" ]
