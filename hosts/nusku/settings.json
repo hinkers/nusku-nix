@@ -1,0 +1,58 @@
+{
+  "hostname": "nusku",
+  "user": "hinkers",
+  "timezone": "Australia/Sydney",
+  "locale": "en_AU.UTF-8",
+  "keymap": "us",
+  "boot": {
+    "loader": "systemd-boot"
+  },
+  "gpu": "intel",
+  "nvidia": null,
+  "prime": null,
+  "panels": [
+    {
+      "output": "eDP-1",
+      "scale": 1.25
+    }
+  ],
+  "accent": "blue",
+  "apps": [
+    "neovim",
+    "gh",
+    "claude-code",
+    "lazygit",
+    "firefox",
+    "chromium",
+    "discord",
+    "obsidian",
+    "calendar",
+    "spotify",
+    "vlc",
+    "obs",
+    "audacity",
+    "photocraft",
+    "pdfcraft",
+    "wordcraft",
+    "steam",
+    "lutris",
+    "heroic",
+    "parsec",
+    "sunshine",
+    "moonlight",
+    "gamemode",
+    "mangohud",
+    "protonup",
+    "wine",
+    "yazi",
+    "wayvnc",
+    "pokemon"
+  ],
+  "langs": [
+    "python",
+    "php",
+    "gdscript",
+    "js"
+  ],
+  "stateVersion": "26.05"
+}
