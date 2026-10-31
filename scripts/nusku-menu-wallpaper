@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# nusku-menu-wallpaper: pick a wallpaper (with thumbnails), then the monitor to apply it to.
+set -euo pipefail
+
+# Same directory nusku-wallpaper lists (Home Manager links the repo's wallpapers there).
+wallpapers="${NUSKU_WALLPAPERS:-${XDG_DATA_HOME:-$HOME/.local/share}/nusku/wallpapers}"
+
+rows=""
+while IFS= read -r f; do
+    rows+="$(basename "$f")\0icon\x1f$f\n"
+done < <(nusku-wallpaper list)
+
+# A 4 x 3 grid of thumbnails with names underneath: about 36em tall, so it fits a 1280x800 screen.
+grid='window { width: 46em; }
+listview { columns: 4; lines: 3; flow: horizontal; fixed-columns: true; }
+element { orientation: vertical; padding: 8px; spacing: 6px; }
+element-icon { size: 8em; }
+element-text { horizontal-align: 0.5; }'
+
+name="$(printf '%b' "$rows" | rofi -dmenu -i -show-icons -p "Wallpaper" -theme nusku -theme-str "$grid")" || exit 0
+[ -n "$name" ] || exit 0
+file="$wallpapers/$name"
+
+monitors="$(hyprctl monitors -j | jq -r '.[].name')"
+target="$(printf 'All monitors\n%s\n' "$monitors" | rofi -dmenu -i -p "Apply to" -theme nusku)" || exit 0
+[ -n "$target" ] || exit 0
+[ "$target" = "All monitors" ] && target=all
+
+exec nusku-wallpaper set "$file" "$target"
