@@ -7,6 +7,7 @@
   imports = [
     ./theme.nix
     ./hyprland.nix
+    ./panels.nix
   ];
 
   home.username = osConfig.nusku.user;

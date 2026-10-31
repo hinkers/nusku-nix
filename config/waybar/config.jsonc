@@ -1,0 +1,101 @@
+// Nusku waybar config. Colours come from ~/.config/nusku/theme/colors.css via style.css.
+{
+  "layer": "top",
+  "position": "top",
+  "height": 34,
+  "spacing": 4,
+  "modules-left": ["ext/workspaces", "hyprland/window"],
+  "modules-center": ["clock"],
+  "modules-right": ["tray", "battery", "group/quick"],
+
+  // ext/workspaces switches through the Wayland workspace protocol. hyprland/workspaces sends the
+  // old "dispatch workspace N" command, which a Lua Hyprland config rejects, so clicks did nothing.
+  "ext/workspaces": {
+    "format": "{name}",
+    "on-click": "activate",
+    "sort-by-id": true,
+    "all-outputs": false
+  },
+
+  "hyprland/window": {
+    "format": "{title}",
+    "max-length": 60,
+    "separate-outputs": true
+  },
+
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip": false,
+    // Click: the drop-down calendar (scripts/nusku-calendar); click again to close.
+    "on-click": "nusku-calendar"
+  },
+
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8
+  },
+
+  // One pill for network, Bluetooth and notifications: a click opens quick settings (swaync),
+  // which has the toggles, sliders and notifications. Right-click network or Bluetooth for their tools.
+  "group/quick": {
+    "orientation": "horizontal",
+    "modules": ["network", "bluetooth", "custom/notification"]
+  },
+
+  "network": {
+    "format-wifi": "{icon}",
+    "format-icons": ["󰤟", "󰤢", "󰤥", "󰤨"],
+    "format-ethernet": "󰈀",
+    "format-linked": "󰈀",
+    "format-disconnected": "󰤭",
+    "tooltip-format-wifi": "{essid} ({signalStrength}%)\n{ipaddr}",
+    "tooltip-format-ethernet": "Wired: {ifname}\n{ipaddr}",
+    "tooltip-format-linked": "Wired: {ifname} (no IP)",
+    "tooltip-format-disconnected": "Offline",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "nusku-menu-wifi"
+  },
+
+  "bluetooth": {
+    "format": "󰂯",
+    "format-off": "󰂲",
+    "format-disabled": "󰂲",
+    "format-connected": "󰂱",
+    "tooltip-format": "Bluetooth: {status}",
+    "tooltip-format-connected": "Bluetooth: {device_enumerate}",
+    "tooltip-format-enumerate-connected": "{device_alias}",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "nusku-menu-bluetooth"
+  },
+
+  "battery": {
+    "states": {
+      "warning": 25,
+      "critical": 10
+    },
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-plugged": "󰚥 {capacity}%",
+    "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"]
+  },
+
+  "custom/notification": {
+    "tooltip": false,
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󱅫",
+      "none": "󰂜",
+      "dnd-notification": "󰂛",
+      "dnd-none": "󰪑",
+      "inhibited-notification": "󰂛",
+      "inhibited-none": "󰪑",
+      "dnd-inhibited-notification": "󰂛",
+      "dnd-inhibited-none": "󰪑"
+    },
+    "return-type": "json",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true
+  }
+}
