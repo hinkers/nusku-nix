@@ -2,6 +2,7 @@
 {
   imports = [
     ./options.nix
+    ./base.nix
   ];
 
   networking.hostName = config.nusku.hostname;

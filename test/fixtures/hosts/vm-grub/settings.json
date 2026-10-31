@@ -1,0 +1,7 @@
+{
+  "hostname": "vm-grub",
+  "user": "grubby",
+  "gpu": "vm",
+  "accent": "teal",
+  "boot": { "loader": "grub", "device": "/dev/sda" }
+}
