@@ -45,6 +45,17 @@ in
   xdg.configFile = linkTree "hypr" ../../config/hypr // linkTree "kitty" ../../config/kitty // {
     # nusku-arch's hyprland.lua loads <config>/nusku/gpu.lua (paths.nusku) when present.
     "nusku/gpu.lua".text = osConfig.nusku.internal.hyprGpuLua;
+    # Sunshine (modules/nixos/apps.nix): its user unit is WantedBy graphical-session.target,
+    # which nothing reaches here (Hyprland runs without UWSM), so the session starts it. The
+    # file is types.lines: other picks (Obsidian, browsers.nix) add their own block.
+    "nusku/autostart.lua" = lib.mkIf (builtins.elem "sunshine" osConfig.nusku.apps) {
+      text = ''
+        -- Sunshine: the game-streaming host (modules/home/hyprland.nix).
+        hl.on("hyprland.start", function()
+            hl.exec_cmd("systemctl --user start sunshine")
+        end)
+      '';
+    };
   };
 
   # A stable path for the wallpapers: nusku-wallpaper saves choices under it.

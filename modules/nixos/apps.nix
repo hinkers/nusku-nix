@@ -96,7 +96,8 @@ let
       users.users.${cfg.user}.extraGroups = [ "gamemode" ];
     };
 
-    # Starts with the Hyprland session; Moonlight finds it over mDNS (Avahi). Ports are
+    # Starts with the Hyprland session (nusku/autostart.lua, modules/home/hyprland.nix: nothing
+    # reaches the unit's graphical-session.target); Moonlight finds it over mDNS (Avahi). Ports are
     # nusku-arch's UFW rules: the streaming ports only, so the settings page (47990) stays
     # reachable from this PC alone (openFirewall would open it too).
     sunshine = {

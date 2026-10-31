@@ -16,6 +16,7 @@ let
   tcp = c: c.networking.firewall.allowedTCPPorts;
   udp = c: c.networking.firewall.allowedUDPPorts;
   mime = c: c.xdg.mime.defaultApplications;
+  autostart = c: (hmOf c).xdg.configFile."nusku/autostart.lua".text or "";
 
   ids = map (a: a.id) catalogue.apps;
   starred = map (a: a.id) (builtins.filter (a: a.star or false) catalogue.apps);
@@ -100,6 +101,16 @@ in
     && !sunshine.services.avahi.settings.publish."disable-user-service-publishing"
     && hasAll [ 47984 47989 48010 ] (tcp sunshine) && !(builtins.elem 47990 (tcp sunshine))
     && hasAll [ 47998 47999 48000 48002 48010 5353 ] (udp sunshine);
+  # Nothing starts graphical-session.target (Hyprland without UWSM), so the unit's WantedBy
+  # never fires: Hyprland starts it from the per-pick nusku/autostart.lua.
+  "sunshine: started with the Hyprland session (nusku/autostart.lua)" =
+    lib.hasInfix ''hl.exec_cmd("systemctl --user start sunshine")'' (autostart sunshine)
+    && lib.hasInfix "hyprland.start" (autostart sunshine);
+  "sunshine with obsidian: both autostart entries kept" =
+    let c = pick [ "sunshine" "obsidian" ]; in
+    lib.hasInfix "start sunshine" (autostart c) && lib.hasInfix "nusku-obsidian-theme" (autostart c);
+  "sunshine not picked: no sunshine autostart" =
+    builtins.all (c: !(lib.hasInfix "sunshine" (autostart c))) [ none full min ];
   "moonlight: mDNS replies allowed in" = builtins.elem 5353 (udp (pick [ "moonlight" ]));
   "wayvnc: installed, VNC port stays closed" =
     let c = pick [ "wayvnc" ]; in builtins.elem "wayvnc" (sysNames c) && !(builtins.elem 5900 (tcp c));
