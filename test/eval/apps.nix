@@ -99,7 +99,8 @@ in
     && hasAll [ 47984 47989 48010 ] (tcp sunshine) && !(builtins.elem 47990 (tcp sunshine))
     && hasAll [ 47998 47999 48000 48002 48010 5353 ] (udp sunshine);
   "moonlight: mDNS replies allowed in" = builtins.elem 5353 (udp (pick [ "moonlight" ]));
-  "wayvnc: VNC port open" = builtins.elem 5900 (tcp (pick [ "wayvnc" ]));
+  "wayvnc: installed, VNC port stays closed" =
+    let c = pick [ "wayvnc" ]; in builtins.elem "wayvnc" (sysNames c) && !(builtins.elem 5900 (tcp c));
   "steam: programs.steam, gamescope, 32-bit audio" =
     let c = pick [ "steam" ]; in c.programs.steam.enable && c.programs.gamescope.enable
     && c.services.pipewire.alsa.support32Bit && !min.services.pipewire.alsa.support32Bit;
@@ -119,7 +120,7 @@ in
     && builtins.elem "v /home/.snapshots 0750 root root -" all.systemd.tmpfiles.rules;
   "snapper on ext4: nothing configured, a warning instead" =
     snapperExt4.services.snapper.configs == { }
-    && builtins.any (w: lib.hasInfix "Snapper" w) snapperExt4.warnings
+    && builtins.elem "Snapper was skipped: /home is not its own btrfs mount." snapperExt4.warnings
     && !(builtins.any (w: lib.hasInfix "Snapper" w) all.warnings);
 
   # --- default browser -----------------------------------------------------------------------

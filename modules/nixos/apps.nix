@@ -69,6 +69,9 @@ let
     wine = [ wineWow64Packages.stable winetricks ];
 
     remmina = [ remmina ];
+    # No firewall opening (nusku-arch never opened 5900, and wayvnc has no authentication
+    # unless configured): reach it over an SSH tunnel, or open the port yourself.
+    wayvnc = [ wayvnc ];
     gparted = [ gparted ];
   };
 
@@ -117,12 +120,6 @@ let
     localsend.programs.localsend = {
       enable = true;
       openFirewall = true; # 53317 TCP and UDP
-    };
-
-    # Sharing the screen needs the VNC port open (`wayvnc 0.0.0.0`).
-    wayvnc = {
-      environment.systemPackages = [ pkgs.wayvnc ];
-      networking.firewall.allowedTCPPorts = [ 5900 ];
     };
 
     snapper = mkIf homeIsBtrfs {
@@ -193,7 +190,7 @@ in
       );
 
       warnings = lib.optional (picked "snapper" && !homeIsBtrfs)
-        "Snapper was skipped: /home is not a btrfs subvolume.";
+        "Snapper was skipped: /home is not its own btrfs mount.";
     }
   ] ++ lib.mapAttrsToList (id: settings: mkIf (picked id) settings) systemApps);
 }
