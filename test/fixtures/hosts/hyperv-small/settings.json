@@ -1,0 +1,15 @@
+{
+  "hostname": "hyperv-small",
+  "user": "tester",
+  "timezone": "Australia/Brisbane",
+  "locale": "en_AU.UTF-8",
+  "keymap": "us",
+  "boot": { "loader": "systemd-boot" },
+  "gpu": "vm",
+  "nvidia": null,
+  "prime": null,
+  "panels": [],
+  "accent": "mauve",
+  "apps": [ "neovim", "firefox", "obsidian", "calendar", "pokemon" ],
+  "langs": [ "python" ]
+}

@@ -7,6 +7,8 @@
 #   nusku_rebuild REPO HOST      nixos-rebuild switch --flake REPO#HOST, run as the user: the user
 #                                evaluates and builds (own caches, nothing root-owned in the
 #                                checkout); sudo only activates. Returns nixos-rebuild's status.
+#                                NUSKU_FLAKE_ATTR, when set, is built instead of HOST: only the
+#                                Hyper-V test VM sets it, to HOST-hyperv-test (test/hyperv).
 
 nix_flakes_config() {
     case "${NIX_CONFIG:-}" in
@@ -29,5 +31,7 @@ _rebuild_sudo_flag() {
 
 nusku_rebuild() {
     nix_flakes_config
-    nixos-rebuild switch --flake "$1#$2" "$(_rebuild_sudo_flag)"
+    local attr="${NUSKU_FLAKE_ATTR:-$2}"
+    [ "$attr" = "$2" ] || printf 'Building %s (NUSKU_FLAKE_ATTR) instead of %s\n' "$attr" "$2" >&2
+    nixos-rebuild switch --flake "$1#$attr" "$(_rebuild_sudo_flag)"
 }

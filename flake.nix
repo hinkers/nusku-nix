@@ -19,11 +19,18 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       mkHosts = dir: import ./lib/hosts.nix { inherit inputs dir; };
+      # The Hyper-V test VM's NAME-hyperv-test variants of the gpu "vm" hosts in a directory
+      # (test/hyperv/hosts.nix): a separate output per host, never a change to the host itself.
+      mkHypervHosts = args: import ./test/hyperv/hosts.nix ({ inherit inputs; } // args);
       catalogue = import ./lib/catalogue.nix;
 
       # Test fixtures are only ever checks, never nixosConfigurations.
       fixtures = mkHosts ./test/fixtures/hosts;
-      hostChecks = lib.mapAttrs (_: host: host.config.system.build.toplevel) fixtures;
+      hypervFixtures = mkHypervHosts { dir = ./test/fixtures/hosts; };
+      # Of the test variants, only the two the Hyper-V loop installs are checks (each is a whole
+      # system to evaluate); test/eval/hyperv.nix looks at others.
+      hostChecks = lib.mapAttrs (_: host: host.config.system.build.toplevel)
+        (fixtures // lib.getAttrs [ "hyperv-small-hyperv-test" "hyperv-full-hyperv-test" ] hypervFixtures);
 
       # test/eval/<file>.nix -> checks.eval-<file>: an attrset of named booleans that must all
       # be true; evaluation fails listing the false ones.
@@ -32,8 +39,9 @@
           let
             name = lib.removeSuffix ".nix" file;
             asserts = import (./test/eval + "/${file}") {
-              inherit self lib pkgs catalogue;
+              inherit self lib pkgs catalogue mkHypervHosts;
               hosts = fixtures;
+              hypervHosts = hypervFixtures;
             };
             failed = builtins.attrNames (lib.filterAttrs (_: ok: ok != true) asserts);
           in
@@ -44,7 +52,8 @@
         (lib.filterAttrs (f: t: t == "regular" && lib.hasSuffix ".nix" f) (builtins.readDir ./test/eval));
     in
     {
-      nixosConfigurations = mkHosts ./hosts;
+      # NAME-hyperv-test exists only for gpu "vm" hosts and is only built when named (test/hyperv).
+      nixosConfigurations = mkHosts ./hosts // mkHypervHosts { dir = ./hosts; };
 
       checks.${system} = hostChecks // evalChecks;
 

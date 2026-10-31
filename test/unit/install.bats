@@ -66,7 +66,7 @@ EOF
     export NUSKU_TUI_IN="$BATS_TEST_TMPDIR/keys" NUSKU_TUI_OUT="$BATS_TEST_TMPDIR/screen"
     : >"$NUSKU_TUI_IN"
     export XDG_STATE_HOME="$BATS_TEST_TMPDIR/state"
-    unset NUSKU_LOG NUSKU_STEP NUSKU_CATALOGUE
+    unset NUSKU_LOG NUSKU_STEP NUSKU_CATALOGUE NUSKU_FLAKE_ATTR
 }
 
 owner() { git -C "$REPO" -c user.name=Owner -c user.email=owner@example.com "$@"; }
@@ -145,7 +145,17 @@ set_apps() {
     [ "$(last_subject)" = "host: laptop" ]
     [ "$(git -C "$REPO" show --name-only --format= HEAD)" = hosts/laptop/hardware-configuration.nix ]
     [ ! -s "$NUSKU_TUI_OUT" ] # no screen was drawn
-    grep -qF "nixos-rebuild switch --flake $REPO#laptop" "$CALLS"
+    grep -qF "nixos-rebuild switch --flake $REPO#laptop --sudo" "$CALLS"
+}
+
+@test "--host with NUSKU_FLAKE_ATTR (only the Hyper-V test VM sets it) builds that output instead" {
+    seed_host laptop
+    NUSKU_FLAKE_ATTR=laptop-hyperv-test run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    grep -qF "nixos-rebuild switch --flake $REPO#laptop-hyperv-test --sudo" "$CALLS"
+    [ "$(grep -c "^nixos-rebuild switch" "$CALLS")" -eq 1 ]
+    [ "$(last_subject)" = "host: laptop" ] # the same host files: hosts/laptop
+    [[ "$output" == *"Building laptop-hyperv-test (NUSKU_FLAKE_ATTR) instead of laptop"* ]]
 }
 
 @test "a second identical run makes no commit" {

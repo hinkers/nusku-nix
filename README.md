@@ -257,3 +257,6 @@ bash test/run-eval.sh vm-min     # one check
 ```
 
 The flake only sees files git knows about: `git add` new files before running the eval tests.
+
+End to end, on Windows with Hyper-V: a NixOS VM that installs your working tree, reboots into
+the desktop, checks it and takes screenshots. See [test/hyperv/README.md](test/hyperv/README.md).

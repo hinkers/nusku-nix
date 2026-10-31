@@ -6,7 +6,7 @@
 setup() {
     export HOME="$BATS_TEST_TMPDIR/home" # no git identity unless a test sets one
     mkdir -p "$HOME"
-    unset XDG_CONFIG_HOME NUSKU_REPO NIX_CONFIG
+    unset XDG_CONFIG_HOME NUSKU_REPO NIX_CONFIG NUSKU_FLAKE_ATTR
     export NUSKU_HOSTNAME=box
 
     local seed="$BATS_TEST_TMPDIR/seed"
@@ -73,6 +73,15 @@ upstream_commit() {
     [ "$status" -eq 0 ]
     built "$REPO"
     [ "$(grep -c nixos-rebuild "$CALLS")" -eq 1 ]
+}
+
+@test "rebuild: NUSKU_FLAKE_ATTR (set only in the Hyper-V test VM) picks the flake output" {
+    record "$REPO"
+    NUSKU_FLAKE_ATTR=box-hyperv-test run rebuild
+    [ "$status" -eq 0 ]
+    grep -qF "nixos-rebuild switch --flake $REPO#box-hyperv-test --sudo" "$CALLS"
+    [ "$(grep -c nixos-rebuild "$CALLS")" -eq 1 ]
+    [[ "$output" == *"Building box-hyperv-test (NUSKU_FLAKE_ATTR) instead of box"* ]]
 }
 
 @test "rebuild: XDG_CONFIG_HOME moves the file" {
