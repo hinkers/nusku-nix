@@ -199,7 +199,7 @@ collect_notes() {
         *" firefox "*)
             if [ -d "$HOME/.mozilla/firefox" ] ||
                 { [ -e "$HOME/.config/mozilla/firefox/profiles.ini" ] && [ ! -L "$HOME/.config/mozilla/firefox/profiles.ini" ]; }; then
-                NOTES+=("Firefox: you already had a profile (~/.mozilla/firefox or ~/.config/mozilla/firefox/profiles.ini), so Firefox may start unthemed or Home Manager may refuse to replace it; see README, Browser and Obsidian theming.")
+                NOTES+=("Firefox: you already had a profile (~/.mozilla/firefox or ~/.config/mozilla/firefox/profiles.ini), so Firefox may start unthemed or Home Manager may refuse to replace it; see README, Browsers and Obsidian.")
             fi
             ;;
     esac
@@ -208,8 +208,18 @@ collect_notes() {
         NOTES+=("No web browser is installed, so links will not open. Pick one with ./install.sh --apps.")
 }
 
+# record_checkout: where this checkout is, for nusku-rebuild and nusku-update (they run from the
+# Nix store, so they can't find it themselves). Per machine, so it lives in the user's config,
+# not in the repo. Written before the build, so it is there even if the build fails.
+record_checkout() {
+    local file="${XDG_CONFIG_HOME:-$HOME/.config}/nusku/repo"
+    mkdir -p "$(dirname "$file")"
+    printf '%s\n' "$NUSKU_ROOT" >"$file"
+}
+
 step_build() {
     step "Build"
+    record_checkout
     # As the user (sudo only activates); see lib/sh/rebuild.sh.
     run_soft nusku_rebuild "$NUSKU_ROOT" "$name" ||
         die "The build failed (see above). hosts/$name is saved and committed, so fix the problem, then run: ./install.sh --host $name"

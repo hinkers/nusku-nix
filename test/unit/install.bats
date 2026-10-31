@@ -306,6 +306,18 @@ set_apps() {
     [ "$status" -eq 0 ]
 }
 
+@test "it records the checkout in ~/.config/nusku/repo for nusku-rebuild, even when the build fails" {
+    seed_host laptop
+    FAIL_BUILD=1 run install --host laptop --no-reboot
+    [ "$status" -eq 1 ]
+    [ "$(cat "$HOME/.config/nusku/repo")" = "$(realpath "$REPO")" ]
+    printf '/old/place\n' >"$HOME/.config/nusku/repo"
+    FAIL_BUILD= run install --host laptop --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(cat "$HOME/.config/nusku/repo")" = "$(realpath "$REPO")" ]
+    ! git -C "$REPO" ls-files --error-unmatch .config >/dev/null 2>&1 || false
+}
+
 @test "--host refuses a host whose user does not exist here" {
     seed_host laptop
     local f="$REPO/hosts/laptop/settings.json"

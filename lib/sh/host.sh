@@ -7,6 +7,9 @@
 
 NUSKU_ROOT="${NUSKU_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
+# shellcheck source=lib/sh/git.sh
+source "$(dirname "${BASH_SOURCE[0]}")/git.sh"
+
 # The answers, one key per setting: HOSTNAME USER TIMEZONE LOCALE KEYMAP BOOT_LOADER BOOT_DEVICE
 # GPU NVIDIA PRIME_IGPU PRIME_NVIDIA PANELS (JSON) ACCENT APPS LANGS (space-separated ids).
 if ! declare -p NUSKU_ANSWERS >/dev/null 2>&1; then
@@ -111,19 +114,16 @@ HOST_COMMITTED=0
 # shellcheck disable=SC2034
 host_commit() {
     local name="$1" path="hosts/$1" user
-    local -a who=()
     HOST_COMMITTED=0
     git -C "$NUSKU_ROOT" add -- "$path"
     if git -C "$NUSKU_ROOT" diff --cached --quiet -- "$path"; then
         log_info "hosts/$name is unchanged; nothing to commit"
         return 0
     fi
-    if ! git -C "$NUSKU_ROOT" config user.name >/dev/null || ! git -C "$NUSKU_ROOT" config user.email >/dev/null; then
-        user="${NUSKU_ANSWERS[USER]:-$(id -un)}"
-        who=(-c "user.name=$user" -c "user.email=$user@$name")
+    user="${NUSKU_ANSWERS[USER]:-$(id -un)}"
+    git_who "$NUSKU_ROOT" "$user" "$name" ||
         log_info "git has no user.name/user.email: committing as $user <$user@$name> (this commit only)"
-    fi
-    git -C "$NUSKU_ROOT" "${who[@]}" commit -q -m "host: $name" -- "$path"
+    git -C "$NUSKU_ROOT" "${GIT_WHO[@]}" commit -q -m "host: $name" -- "$path"
     HOST_COMMITTED=1
     log_info "Committed hosts/$name (host: $name)"
 }

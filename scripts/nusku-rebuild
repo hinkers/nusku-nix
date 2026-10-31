@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# nusku-rebuild: apply your edits. Builds this machine's host from your Nusku checkout and
+# switches to it: nixos-rebuild switch --flake <checkout>#<host name>, built as you, with sudo
+# only for the switch (lib/sh/rebuild.sh, the same build install.sh runs).
+#
+# The checkout is $NUSKU_REPO, or else the path install.sh records in ~/.config/nusku/repo (this
+# script runs from the Nix store, so it can't use its own location). The host is this machine's
+# host name: hosts/<host name> in the checkout. NUSKU_HOSTNAME overrides it (tests).
+set -euo pipefail
+
+me=nusku-rebuild
+die() {
+    printf '%s: %s\n' "$me" "$*" >&2
+    exit 1
+}
+
+case "${1:-}" in
+    "") ;;
+    -h | --help)
+        cat <<'USAGE'
+Usage: nusku-rebuild
+
+Builds this machine from your Nusku checkout and switches to it (asks for sudo for the switch).
+Use it after you edit the checkout, e.g. hosts/<name>/settings.json or a file in config/.
+New files must be `git add`ed first: the build only sees files git knows about.
+If the new system is broken, pick the previous generation in the boot menu.
+
+The checkout is $NUSKU_REPO, or else the one install.sh recorded in ~/.config/nusku/repo.
+USAGE
+        exit 0
+        ;;
+    *)
+        printf '%s: unknown option: %s (see %s --help)\n' "$me" "$1" "$me" >&2
+        exit 2
+        ;;
+esac
+
+# --- The checkout and this machine's host (the same block is in nusku-update) ---------------
+host="${NUSKU_HOSTNAME:-$(cat /proc/sys/kernel/hostname)}"
+record="${XDG_CONFIG_HOME:-$HOME/.config}/nusku/repo"
+fix="Run ./install.sh --host $host from your Nusku checkout (it records where it is), or set NUSKU_REPO to the checkout."
+repo="${NUSKU_REPO:-}" from=NUSKU_REPO
+if [ -z "$repo" ] && [ -r "$record" ]; then
+    repo="$(head -n 1 "$record")" from="$record"
+fi
+[ -n "$repo" ] || die "Can't find your Nusku checkout: NUSKU_REPO is not set and there is no $record. $fix"
+[ -f "$repo/flake.nix" ] || die "$repo (from $from) has no flake.nix: it is not a Nusku checkout, or it moved. $fix"
+if [ ! -f "$repo/hosts/$host/settings.json" ]; then
+    known=""
+    for f in "$repo"/hosts/*/settings.json; do
+        if [ -f "$f" ]; then
+            f="${f%/settings.json}"
+            known="$known ${f##*/}"
+        fi
+    done
+    die "$repo has no hosts/$host, the host for this machine (its host name is $host). Known hosts:${known:- none}"
+fi
+[ -f "$repo/lib/sh/rebuild.sh" ] || die "$repo/lib/sh/rebuild.sh is missing: is $repo an up-to-date Nusku checkout?"
+# ----------------------------------------------------------------------------------------------
+
+# shellcheck source=lib/sh/rebuild.sh disable=SC1091
+source "$repo/lib/sh/rebuild.sh"
+nusku_rebuild "$repo" "$host" ||
+    die "the build failed (see above). If it got as far as switching and the system misbehaves, pick the previous generation in the boot menu."

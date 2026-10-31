@@ -1,0 +1,280 @@
+# nusku-rebuild and nusku-update, run from scripts/ against a throwaway checkout (a clone of a
+# bare "origin", so git pull has an upstream) with real git and stubs for nix and nixos-rebuild,
+# which record their calls. The checkout is found from ~/.config/nusku/repo (written by
+# install.sh) or $NUSKU_REPO; the host is the machine's host name (NUSKU_HOSTNAME here).
+
+setup() {
+    export HOME="$BATS_TEST_TMPDIR/home" # no git identity unless a test sets one
+    mkdir -p "$HOME"
+    unset XDG_CONFIG_HOME NUSKU_REPO NIX_CONFIG
+    export NUSKU_HOSTNAME=box
+
+    local seed="$BATS_TEST_TMPDIR/seed"
+    mkdir -p "$seed/lib/sh" "$seed/hosts/box"
+    cp lib/sh/rebuild.sh lib/sh/git.sh "$seed/lib/sh/"
+    printf '{ }\n' >"$seed/flake.nix"
+    printf '{ "pins": 1 }\n' >"$seed/flake.lock"
+    printf '{ }\n' >"$seed/hosts/box/settings.json"
+    git -C "$seed" init -q -b main
+    git -C "$seed" add -A
+    git -C "$seed" -c user.name=Owner -c user.email=owner@example.com commit -q -m init
+    ORIGIN="$BATS_TEST_TMPDIR/origin.git"
+    git clone -q --bare "$seed" "$ORIGIN"
+    REPO="$BATS_TEST_TMPDIR/repo"
+    git clone -q "$ORIGIN" "$REPO"
+
+    STUBS="$BATS_TEST_TMPDIR/stubs"
+    mkdir -p "$STUBS"
+    export CALLS="$BATS_TEST_TMPDIR/calls"
+    : >"$CALLS"
+    # nix: `flake update` writes NEW_LOCK into ./flake.lock (an input moved), when set.
+    cat >"$STUBS/nix" <<'EOF'
+#!/bin/sh
+printf 'nix %s (in %s)\n' "$*" "$PWD" >>"$CALLS"
+if [ "$1 $2" = "flake update" ] && [ -n "${NEW_LOCK:-}" ]; then
+    printf '%s\n' "$NEW_LOCK" >flake.lock
+fi
+exit 0
+EOF
+    cat >"$STUBS/nixos-rebuild" <<'EOF'
+#!/bin/sh
+if [ "$1" = --help ]; then echo "  --sudo  use sudo"; exit 0; fi
+printf '%s\n' "$(printf 'nixos-rebuild %s NIX_CONFIG=%s\n' "$*" "$NIX_CONFIG" | tr '\n' ' ')" >>"$CALLS"
+[ -z "${FAIL_BUILD:-}" ] || { echo "error: build failed"; exit 1; }
+EOF
+    chmod +x "$STUBS"/*
+}
+
+owner() { git -C "$1" -c user.name=Owner -c user.email=owner@example.com "${@:2}"; }
+record() {
+    mkdir -p "$HOME/.config/nusku"
+    printf '%s\n' "$1" >"$HOME/.config/nusku/repo"
+}
+rebuild() { PATH="$STUBS:$PATH" bash scripts/nusku-rebuild "$@"; }
+update() { PATH="$STUBS:$PATH" bash scripts/nusku-update "$@"; }
+built() { grep -qF "nixos-rebuild switch --flake $1#box --sudo NIX_CONFIG=extra-experimental-features = nix-command flakes" "$CALLS"; }
+nothing_built() { ! grep -q nixos-rebuild "$CALLS"; }
+
+# upstream_commit: a new commit on origin (from another clone), as when the owner pushes.
+upstream_commit() {
+    local other="$BATS_TEST_TMPDIR/other"
+    [ -d "$other" ] || git clone -q "$ORIGIN" "$other"
+    printf '%s\n' "$1" >"$other/upstream.txt"
+    git -C "$other" add upstream.txt
+    owner "$other" commit -q -m "upstream: $1"
+    git -C "$other" push -q origin main
+}
+
+# --- nusku-rebuild -----------------------------------------------------------------------
+
+@test "rebuild: the checkout from ~/.config/nusku/repo, the host from the host name" {
+    record "$REPO"
+    run rebuild
+    [ "$status" -eq 0 ]
+    built "$REPO"
+    [ "$(grep -c nixos-rebuild "$CALLS")" -eq 1 ]
+}
+
+@test "rebuild: XDG_CONFIG_HOME moves the file" {
+    mkdir -p "$BATS_TEST_TMPDIR/xdg/nusku"
+    printf '%s\n' "$REPO" >"$BATS_TEST_TMPDIR/xdg/nusku/repo"
+    XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/xdg" run rebuild
+    [ "$status" -eq 0 ]
+    built "$REPO"
+}
+
+@test "rebuild: NUSKU_REPO without the file, and NUSKU_REPO wins over the file" {
+    NUSKU_REPO="$REPO" run rebuild
+    [ "$status" -eq 0 ]
+    built "$REPO"
+    : >"$CALLS"
+    cp -r "$REPO" "$BATS_TEST_TMPDIR/copy"
+    record "$REPO"
+    NUSKU_REPO="$BATS_TEST_TMPDIR/copy" run rebuild
+    [ "$status" -eq 0 ]
+    built "$BATS_TEST_TMPDIR/copy"
+}
+
+@test "rebuild: no recorded checkout and no NUSKU_REPO says how to fix it" {
+    run rebuild
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Nusku checkout"* ]]
+    [[ "$output" == *"./install.sh --host box"* ]]
+    [[ "$output" == *"NUSKU_REPO"* ]]
+    nothing_built
+}
+
+@test "rebuild: a recorded checkout that is gone says so" {
+    record "$BATS_TEST_TMPDIR/moved"
+    run rebuild
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"$BATS_TEST_TMPDIR/moved"*"no flake.nix"* ]]
+    [[ "$output" == *"./install.sh --host box"* ]]
+    nothing_built
+}
+
+@test "rebuild: a machine with no hosts/<hostname> is refused" {
+    record "$REPO"
+    NUSKU_HOSTNAME=elsewhere run rebuild
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"hosts/elsewhere"* ]]
+    [[ "$output" == *"Known hosts: box"* ]]
+    nothing_built
+}
+
+@test "rebuild: a checkout without lib/sh/rebuild.sh is refused" {
+    record "$REPO"
+    rm "$REPO/lib/sh/rebuild.sh"
+    run rebuild
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"$REPO/lib/sh/rebuild.sh"* ]]
+    nothing_built
+}
+
+@test "rebuild: a failed build fails and points at the boot menu" {
+    record "$REPO"
+    FAIL_BUILD=1 run rebuild
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"error: build failed"* ]]
+    [[ "$output" == *"nusku-rebuild: the build failed"*"boot menu"* ]]
+}
+
+@test "rebuild: --help, and unknown options are refused" {
+    run rebuild --help
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Usage: nusku-rebuild"* ]]
+    run rebuild --frobnicate
+    [ "$status" -eq 2 ]
+    nothing_built
+}
+
+# --- nusku-update ------------------------------------------------------------------------
+
+@test "update: pulls, updates flake.lock, rebuilds, then commits flake.lock on yes" {
+    record "$REPO"
+    upstream_commit one
+    NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 0 ]
+    [ -f "$REPO/upstream.txt" ]
+    grep -qxF "nix flake update (in $REPO)" "$CALLS"
+    built "$REPO"
+    [[ "$output" == *"Commit flake.lock?"* ]]
+    [ "$(git -C "$REPO" log -1 --format=%s)" = "flake.lock: update" ]
+    [ "$(git -C "$REPO" show --name-only --format= HEAD)" = flake.lock ]
+    [ -z "$(git -C "$REPO" status --porcelain)" ]
+}
+
+@test "update: nix flake update runs only after the pull, the build only after both" {
+    record "$REPO"
+    NEW_LOCK='{ "pins": 2 }' run update <<<"n"
+    [ "$status" -eq 0 ]
+    [ "$(sed -n 1p "$CALLS")" = "nix flake update (in $REPO)" ]
+    sed -n 2p "$CALLS" | grep -q '^nixos-rebuild switch'
+}
+
+@test "update: no (or no answer) leaves flake.lock updated but uncommitted" {
+    record "$REPO"
+    NEW_LOCK='{ "pins": 2 }' run update <<<"n"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$REPO" log -1 --format=%s)" = init ]
+    [ "$(git -C "$REPO" status --porcelain)" = " M flake.lock" ]
+    git -C "$REPO" checkout -q flake.lock
+    NEW_LOCK='{ "pins": 2 }' run update </dev/null
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$REPO" log -1 --format=%s)" = init ]
+    [ "$(git -C "$REPO" status --porcelain)" = " M flake.lock" ]
+}
+
+@test "update: only flake.lock goes into the commit; untracked files stay as they were" {
+    record "$REPO"
+    echo scratch >"$REPO/notes.txt"
+    NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$REPO" show --name-only --format= HEAD)" = flake.lock ]
+    [ "$(git -C "$REPO" status --porcelain)" = "?? notes.txt" ]
+}
+
+@test "update: no git identity commits as the user, for that commit only; an identity is used" {
+    record "$REPO"
+    NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$REPO" log -1 --format='%an <%ae>')" = "$(id -un) <$(id -un)@box>" ]
+    ! git -C "$REPO" config user.name || false
+    git -C "$REPO" config user.name Amy
+    git -C "$REPO" config user.email amy@example.com
+    NEW_LOCK='{ "pins": 3 }' run update <<<"y"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$REPO" log -1 --format='%an <%ae>')" = "Amy <amy@example.com>" ]
+}
+
+@test "update: an unchanged flake.lock is not offered for commit" {
+    record "$REPO"
+    run update <<<"y"
+    [ "$status" -eq 0 ]
+    built "$REPO"
+    [[ "$output" != *"Commit flake.lock?"* ]]
+    [[ "$output" == *"flake.lock is unchanged"* ]]
+    [ "$(git -C "$REPO" log -1 --format=%s)" = init ]
+}
+
+@test "update: uncommitted changes stop it before anything runs" {
+    record "$REPO"
+    upstream_commit one
+    echo '{ "mine": true }' >"$REPO/hosts/box/settings.json"
+    NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"uncommitted changes"* ]]
+    [[ "$output" == *"hosts/box/settings.json"* ]]
+    [ ! -f "$REPO/upstream.txt" ]
+    [ "$(cat "$REPO/hosts/box/settings.json")" = '{ "mine": true }' ]
+    [ ! -s "$CALLS" ]
+}
+
+@test "update: staged changes stop it too" {
+    record "$REPO"
+    echo scratch >"$REPO/notes.txt"
+    git -C "$REPO" add notes.txt
+    run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"uncommitted changes"* ]]
+    [ "$(git -C "$REPO" diff --cached --name-only)" = notes.txt ]
+    [ ! -s "$CALLS" ]
+}
+
+@test "update: a pull that can't fast-forward stops it and leaves the local commits" {
+    record "$REPO"
+    upstream_commit theirs
+    echo mine >"$REPO/mine.txt"
+    git -C "$REPO" add mine.txt
+    owner "$REPO" commit -q -m mine
+    local head
+    head=$(git -C "$REPO" rev-parse HEAD)
+    NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"git pull --ff-only"* ]]
+    [ "$(git -C "$REPO" rev-parse HEAD)" = "$head" ]
+    [ -z "$(git -C "$REPO" status --porcelain)" ]
+    [ ! -s "$CALLS" ]
+}
+
+@test "update: a failed build leaves flake.lock uncommitted and says how to go back" {
+    record "$REPO"
+    FAIL_BUILD=1 NEW_LOCK='{ "pins": 2 }' run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" != *"Commit flake.lock?"* ]]
+    [[ "$output" == *"git -C $REPO checkout flake.lock"* ]]
+    [[ "$output" == *"boot menu"* ]]
+    [ "$(git -C "$REPO" log -1 --format=%s)" = init ]
+    [ "$(git -C "$REPO" status --porcelain)" = " M flake.lock" ]
+}
+
+@test "update: the same checks as nusku-rebuild (no checkout, no host)" {
+    run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"./install.sh --host box"*"NUSKU_REPO"* ]]
+    record "$REPO"
+    NUSKU_HOSTNAME=elsewhere run update <<<"y"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"hosts/elsewhere"* ]]
+    [ ! -s "$CALLS" ]
+}

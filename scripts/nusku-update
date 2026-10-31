@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# nusku-update: update everything. In your Nusku checkout: git pull --ff-only (your other
+# machines' changes), nix flake update (newer nixpkgs, Home Manager and catppuccin/nix in
+# flake.lock), then the same build as nusku-rebuild. Only after a good build does it offer to
+# commit flake.lock (only that file).
+#
+# It never touches your work: uncommitted changes, or a pull that can't fast-forward, stop it
+# before anything runs. If the build fails, flake.lock is left updated but uncommitted, and it
+# says how to go back.
+#
+# The checkout is $NUSKU_REPO, or else the path install.sh records in ~/.config/nusku/repo; the
+# host is this machine's host name. NUSKU_HOSTNAME overrides it (tests).
+set -euo pipefail
+
+me=nusku-update
+die() {
+    printf '%s: %s\n' "$me" "$*" >&2
+    exit 1
+}
+say() {
+    printf '%s: %s\n' "$me" "$*" >&2
+}
+
+case "${1:-}" in
+    "") ;;
+    -h | --help)
+        cat <<'USAGE'
+Usage: nusku-update
+
+Updates this machine: pulls your Nusku checkout (git pull --ff-only), updates flake.lock
+(nix flake update), rebuilds and switches (asks for sudo for the switch), then asks whether to
+commit flake.lock. Commit or stash your own changes first: it stops if there are any.
+If the new system is broken, pick the previous generation in the boot menu.
+
+The checkout is $NUSKU_REPO, or else the one install.sh recorded in ~/.config/nusku/repo.
+USAGE
+        exit 0
+        ;;
+    *)
+        printf '%s: unknown option: %s (see %s --help)\n' "$me" "$1" "$me" >&2
+        exit 2
+        ;;
+esac
+
+# --- The checkout and this machine's host (the same block is in nusku-rebuild) --------------
+host="${NUSKU_HOSTNAME:-$(cat /proc/sys/kernel/hostname)}"
+record="${XDG_CONFIG_HOME:-$HOME/.config}/nusku/repo"
+fix="Run ./install.sh --host $host from your Nusku checkout (it records where it is), or set NUSKU_REPO to the checkout."
+repo="${NUSKU_REPO:-}" from=NUSKU_REPO
+if [ -z "$repo" ] && [ -r "$record" ]; then
+    repo="$(head -n 1 "$record")" from="$record"
+fi
+[ -n "$repo" ] || die "Can't find your Nusku checkout: NUSKU_REPO is not set and there is no $record. $fix"
+[ -f "$repo/flake.nix" ] || die "$repo (from $from) has no flake.nix: it is not a Nusku checkout, or it moved. $fix"
+if [ ! -f "$repo/hosts/$host/settings.json" ]; then
+    known=""
+    for f in "$repo"/hosts/*/settings.json; do
+        if [ -f "$f" ]; then
+            f="${f%/settings.json}"
+            known="$known ${f##*/}"
+        fi
+    done
+    die "$repo has no hosts/$host, the host for this machine (its host name is $host). Known hosts:${known:- none}"
+fi
+[ -f "$repo/lib/sh/rebuild.sh" ] || die "$repo/lib/sh/rebuild.sh is missing: is $repo an up-to-date Nusku checkout?"
+# ----------------------------------------------------------------------------------------------
+
+# 1. Your work first: any change to a tracked file (staged or not) stops it. Untracked files are
+#    left alone (a pull doesn't touch them, and the build doesn't see them).
+changes="$(git -C "$repo" status --porcelain --untracked-files=no)"
+if [ -n "$changes" ]; then
+    die "$repo has uncommitted changes:
+$changes
+Commit them (or stash them: git stash), then run $me again. (A flake.lock left by a failed
+update goes back with: git -C $repo checkout flake.lock)"
+fi
+
+# 2. Pull. --ff-only never merges: if this machine has commits the remote hasn't (or the other
+#    way round on both sides), git refuses and nothing changes.
+say "git pull --ff-only in $repo"
+git -C "$repo" pull --ff-only ||
+    die "git pull --ff-only failed (see above), so nothing was changed. Usually this machine and the remote both have new commits: sort that out in $repo (git status, git pull --rebase, git push), then run $me again."
+
+# lib/sh/rebuild.sh after the pull, so the build is the one the pulled checkout describes.
+for f in rebuild.sh git.sh; do
+    [ -f "$repo/lib/sh/$f" ] || die "$repo/lib/sh/$f is missing: is $repo an up-to-date Nusku checkout?"
+done
+# shellcheck source=lib/sh/rebuild.sh disable=SC1091
+source "$repo/lib/sh/rebuild.sh"
+# shellcheck source=lib/sh/git.sh disable=SC1091
+source "$repo/lib/sh/git.sh"
+nix_flakes_config
+
+# 3. New pins.
+say "nix flake update"
+(cd "$repo" && nix flake update) || die "nix flake update failed (see above). flake.lock is as it was: nothing was built."
+lock_changed=1
+if git -C "$repo" diff --quiet -- flake.lock; then
+    lock_changed=0
+    say "flake.lock is unchanged (no newer inputs); rebuilding anyway, for what the pull brought"
+fi
+
+# 4. Build and switch.
+if ! nusku_rebuild "$repo" "$host"; then
+    if [ "$lock_changed" -eq 1 ]; then
+        die "the build failed (see above). The new flake.lock is not committed. To go back to the
+old pins: git -C $repo checkout flake.lock
+If it got as far as switching and the system misbehaves, pick the previous generation in the
+boot menu."
+    fi
+    die "the build failed (see above). If it got as far as switching and the system misbehaves,
+pick the previous generation in the boot menu."
+fi
+
+# 5. Keep the new pins: commit flake.lock on yes (only that file).
+[ "$lock_changed" -eq 1 ] || exit 0
+printf 'Commit flake.lock? [y/N] ' >&2
+answer=""
+read -r answer || true
+case "$answer" in
+    y | Y | yes | Yes | YES) ;;
+    *)
+        say "flake.lock is updated but not committed. Commit it later (git -C $repo commit flake.lock), or go back: git -C $repo checkout flake.lock"
+        exit 0
+        ;;
+esac
+user="$(id -un)"
+git_who "$repo" "$user" "$host" ||
+    say "git has no user.name/user.email: committing as $user <$user@$host> (this commit only)"
+git -C "$repo" "${GIT_WHO[@]}" commit -q -m "flake.lock: update" -- flake.lock
+say "Committed flake.lock. Push it (git -C $repo push) so your other machines get the same pins."
