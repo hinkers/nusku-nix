@@ -62,6 +62,11 @@ Fix (run once in an elevated PowerShell), then sign out and back in:
 }
 
 # --- Preconditions ---------------------------------------------------------
+# Get-VM -Name takes wildcards: a name with * ? or [ could match (and with -Force delete) another
+# VM, such as nusku-arch's nusku-test.
+if ($Name -match '[\*\?\[\]]') {
+    Stop-Friendly "-Name '$Name': wildcard characters (* ? [ ]) are not allowed."
+}
 if (-not (Test-Path -LiteralPath $IsoPath -PathType Leaf)) {
     Stop-Friendly "ISO not found: $IsoPath"
 }
@@ -89,6 +94,9 @@ if ($existing) {
         if ($vmNow.Status -notmatch 'Merging') { break }
         Start-Sleep -Seconds 2
     }
+    # With checkpoints, the disk captured above was the differencing .avhdx; after the merge the
+    # VM points at its base .vhdx again, so read the disks once more.
+    $oldDisks = @($oldDisks + @(Get-VMHardDiskDrive -VMName $Name | ForEach-Object { $_.Path }) | Select-Object -Unique)
     Remove-VM -Name $Name -Force
     foreach ($d in $oldDisks) {
         if ($d -and (Test-Path -LiteralPath $d)) { Remove-Item -LiteralPath $d -Force }

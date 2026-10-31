@@ -79,8 +79,15 @@ Log in on the console as `tester`. The loop needs SSH, passwordless sudo, the Hy
 services (KVP reports the VM's IP address to the host) and git. They go in a file of their own
 next to `configuration.nix`.
 
-To type the block below into the VM, copy it on the host and use the VM window's menu:
-**Clipboard → Type clipboard text**.
+First type this by hand and enter your password, so sudo doesn't ask again while the typed
+block below runs. If it asks during the block, the lines after it go into the password prompt.
+
+```bash
+sudo -v
+```
+
+Then, within five minutes (sudo's timeout), type the first block below into the VM. To do
+that, copy it on the host and use the VM window's menu: **Clipboard → Type clipboard text**.
 
 ```bash
 sudo tee /etc/nixos/nusku-test.nix > /dev/null <<'EOF'
@@ -97,11 +104,19 @@ sudo tee /etc/nixos/nusku-test.nix > /dev/null <<'EOF'
 EOF
 sudo sed -i 's|\./hardware-configuration\.nix|./hardware-configuration.nix ./nusku-test.nix|' /etc/nixos/configuration.nix
 grep -n 'nusku-test.nix' /etc/nixos/configuration.nix
+```
+
+The `grep` must print the `imports` line with both files,
+`./hardware-configuration.nix ./nusku-test.nix`. If it prints nothing, add `./nusku-test.nix`
+to the `imports` list by hand (`sudo nano /etc/nixos/configuration.nix`).
+
+Then build it (run `sudo -v` again first if more than five minutes have passed):
+
+```bash
 sudo nixos-rebuild switch
 ```
 
-The `grep` must print the `imports` line with both files. `nixos-rebuild switch` should end
-without errors; sudo asks for your password this once.
+It should end without errors.
 
 Now put the host's key in `~tester/.ssh/authorized_keys`. Run this on the host and type the
 password once. SSH still accepts passwords until Nusku's build turns them off.
@@ -175,8 +190,13 @@ What a run does:
    exists.
 
 Results go to `test/screenshots/<timestamp>/`, which is gitignored: the PNGs, `install.out`,
-`install.log`, `rebuild2.out` and `checks.txt`. The exit code is 0 for "All good.", 1 for a
-failed install, check or screenshot, and 2 when the run couldn't get going (VM, SSH, packaging).
+`install.log`, `rebuild2.out` and `checks.txt`. The exit code is:
+
+- 0 for "All good.";
+- 2 when the run couldn't get going before the install (VM, SSH, packaging);
+- 1 for anything that fails once the install has started: the install itself, its timeout, the
+  guest not coming back after the reboot, a check or a screenshot. If install.sh dies without an
+  exit code, the loop stops at once instead of waiting for the timeout.
 
 ### How the VM keeps SSH and sudo after Nusku's build
 
@@ -194,8 +214,10 @@ builds `NAME-hyperv-test`, a separate flake output: the same host plus
 These variants exist only for hosts whose `settings.json` has `"gpu": "vm"`, and guest.nix
 refuses to build for any other host. A host's own output, `NAME`, never includes it.
 `test/eval/hyperv.nix` checks all of this without the VM. install.sh and nusku-rebuild build
-the variant only when `NUSKU_FLAKE_ATTR` is set (`lib/sh/rebuild.sh`); a real machine never
-sets it.
+the variant only when `NUSKU_FLAKE_ATTR` is set (`lib/sh/rebuild.sh`), and they refuse any
+value that doesn't end in `-hyperv-test`. A real machine never sets it. The loop passes it
+explicitly to install.sh and nusku-rebuild; guest.nix also sets it for the VM's shells, so a
+`nusku-rebuild` you type in the VM keeps building the variant.
 
 ## 6. Manual checks
 

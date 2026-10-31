@@ -158,6 +158,14 @@ set_apps() {
     [[ "$output" == *"Building laptop-hyperv-test (NUSKU_FLAKE_ATTR) instead of laptop"* ]]
 }
 
+@test "--host with a NUSKU_FLAKE_ATTR not ending in -hyperv-test fails and builds nothing" {
+    seed_host laptop
+    NUSKU_FLAKE_ATTR=desk run install --host laptop --no-reboot
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"NUSKU_FLAKE_ATTR=desk refused"* ]]
+    ! grep -q "^nixos-rebuild switch" "$CALLS" || false
+}
+
 @test "a second identical run makes no commit" {
     seed_host laptop
     run install --host laptop --no-reboot

@@ -51,6 +51,15 @@ in
     && test.nusku.langs == hosts.hyperv-small.config.nusku.langs
     && test.networking.hostName == "hyperv-small";
 
+  # test/hyperv/Invoke-NuskuNixTest.ps1 looks for this id ($catppuccinCrx) in External Extensions.
+  "hyperv: catppuccin/nix's Chromium/Brave extension id is the one the harness checks" =
+    let
+      hm = full.home-manager.users.${full.nusku.user};
+      ids = p: map (e: e.id) p.extensions;
+    in
+    builtins.elem "bkkmolkhemgaeaeggcmfbghljjjoofoh" (ids hm.programs.chromium)
+    && builtins.elem "bkkmolkhemgaeaeggcmfbghljjjoofoh" (ids hm.programs.brave);
+
   "hyperv: real hosts have no sshd" = builtins.all (c: !c.services.openssh.enable) real;
   "hyperv: real hosts have no NOPASSWD sudo and wheel needs a password" =
     builtins.all (c: !(nopasswd c) && c.security.sudo.wheelNeedsPassword) real;

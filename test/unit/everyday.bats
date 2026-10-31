@@ -84,6 +84,14 @@ upstream_commit() {
     [[ "$output" == *"Building box-hyperv-test (NUSKU_FLAKE_ATTR) instead of box"* ]]
 }
 
+@test "rebuild: a NUSKU_FLAKE_ATTR not ending in -hyperv-test is refused, nothing built" {
+    record "$REPO"
+    NUSKU_FLAKE_ATTR=other-box run rebuild
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"NUSKU_FLAKE_ATTR=other-box refused"*"must end in -hyperv-test"* ]]
+    nothing_built
+}
+
 @test "rebuild: XDG_CONFIG_HOME moves the file" {
     mkdir -p "$BATS_TEST_TMPDIR/xdg/nusku"
     printf '%s\n' "$REPO" >"$BATS_TEST_TMPDIR/xdg/nusku/repo"

@@ -25,8 +25,9 @@
     On error the VM is left running for debugging.
     Results go to test/screenshots/<timestamp>/ (gitignored): screenshots, install.log,
     install.out, checks.txt.
-    Exit code is 1 if the install, a check or a screenshot failed, 2 if the run could not
-    get going (VM, SSH, packaging), else 0.
+    Exit code is 2 if the run could not get going before the install (VM, SSH, packaging);
+    1 once the install has started and anything fails (the install, its timeout, the guest
+    not coming back after the reboot, a check, a screenshot); else 0.
 
 .PARAMETER Name
     VM name (default nusku-nix-test).
@@ -95,9 +96,12 @@ $SshOpts = @(
 function Write-Step([string]$Message) { Write-Host "==> $Message" -ForegroundColor Cyan }
 
 # Note: on error the VM is deliberately left as-is (usually running) so you can debug it.
+# Exit 2 before the install starts (the run could not get going); exit 1 after (a product failure).
+$script:InstallStarted = $false
 function Stop-WithError([string]$Message) {
     Write-Host "ERROR: $Message" -ForegroundColor Red
     Write-Host "The VM '$Name' is left as it is for debugging (ssh -i $KeyPath $User@$($script:Ip))."
+    if ($script:InstallStarted) { exit 1 }
     exit 2
 }
 
@@ -190,6 +194,8 @@ if (-not (Test-Path $KeyPath)) {
     Stop-WithError "SSH key $KeyPath not found. See test\hyperv\README.md section 1."
 }
 
+# Get-VM -Name takes wildcards; never let one reach another VM (nusku-arch's nusku-test).
+if ($Name -match '[\*\?\[\]]') { Stop-WithError "-Name '$Name': wildcard characters (* ? [ ]) are not allowed." }
 try { $null = Get-VM -Name $Name -ErrorAction Stop }
 catch { Stop-WithError "VM '$Name' not found (or no permission: join 'Hyper-V Administrators' and sign in again). Create it with test\hyperv\New-NuskuNixVM.ps1." }
 
@@ -324,6 +330,18 @@ echo started
 $launch = $launch.Replace('@ATTR@', $FlakeAttr).Replace('@HOST@', $HostName)
 $null = Invoke-Remote $launch
 if ($script:RemoteExit -ne 0) { Stop-WithError 'Could not start install.sh in the guest.' }
+$script:InstallStarted = $true
+
+# The exit code once install.sh has finished; else "running" while its wrapper (the bash -c
+# above, whose command line holds "install.sh --host") is alive, or "dead" when nothing is left
+# and no exit code was written (killed, OOM, the guest rebooted). Re-read once after a pause, as
+# the wrapper may have just written the file as it exited.
+$pollExit = @'
+cat ~/install.exit 2>/dev/null && exit 0
+pgrep -u "$(id -u)" -f 'install\.sh --host' >/dev/null && { echo running; exit 0; }
+sleep 2
+cat ~/install.exit 2>/dev/null || echo dead
+'@
 
 $installExit = $null
 $shown = 0
@@ -335,7 +353,11 @@ while ($true) {
         $lastContact = Get-Date
         foreach ($line in $chunk) { if ($null -ne $line) { Write-Host "    $line" } }
         $shown += @($chunk | Where-Object { $null -ne $_ }).Count
-        $code = (Invoke-Remote 'cat ~/install.exit 2>/dev/null') | Select-Object -First 1
+        $code = (Invoke-Remote $pollExit) | Select-Object -First 1
+        if ($script:RemoteExit -eq 0 -and "$code" -eq 'dead') {
+            $null = Copy-FromGuest '~/install.out' (Join-Path $OutDir 'install.out')
+            Stop-WithError "install.sh is no longer running in the guest and left no exit code in ~/install.exit (killed?). See $(Join-Path $OutDir 'install.out')."
+        }
         if ("$code" -match '^\d+$') {
             $rest = @(Invoke-Remote "tail -n +$($shown + 1) ~/install.out 2>/dev/null")
             foreach ($line in $rest) { if ($null -ne $line) { Write-Host "    $line" } }
@@ -482,7 +504,17 @@ foreach ($svc in 'display-manager', 'NetworkManager', 'bluetooth', 'power-profil
 Invoke-Check 'built the test variant' @"
 cur=`$(readlink /run/current-system); echo "`$cur"
 [ "`$cur" != '$baseSystem' ] || { echo 'still the base system'; exit 1; }
-[ "`${NUSKU_FLAKE_ATTR:-}" = '$FlakeAttr' ] || { echo "NUSKU_FLAKE_ATTR='`${NUSKU_FLAKE_ATTR:-}' in a login shell"; exit 1; }
+"@
+# guest.nix sets NUSKU_FLAKE_ATTR system-wide so a nusku-rebuild the owner types in the VM keeps
+# building the variant. The loop itself never relies on that: it passes NUSKU_FLAKE_ATTR
+# explicitly to install.sh and to its nusku-rebuild. This only checks the setting reaches an
+# interactive shell (what the owner types into) and, for information, the loop's ssh commands.
+Invoke-Check 'NUSKU_FLAKE_ATTR in the user''s shells' @"
+i=`$(zsh -ic 'print -r -- "ATTR=`${NUSKU_FLAKE_ATTR:-}"' </dev/null 2>/dev/null | sed -n 's/^ATTR=//p' | tail -1)
+s="`${NUSKU_FLAKE_ATTR:-}"
+echo "interactive zsh: '`$i'; the loop's ssh commands: '`$s'"
+[ "`$i" = '$FlakeAttr' ] || { echo 'not set in an interactive shell: a nusku-rebuild typed in the VM would build the plain host (no sshd)'; exit 1; }
+[ "`$s" = '$FlakeAttr' ] || { echo 'not in the ssh command environment (the loop passes it explicitly, so this is only a note)'; exit 3; }
 "@
 Invoke-Check 'host name = host directory' "h=`$(cat /proc/sys/kernel/hostname); echo `$h; [ `"`$h`" = '$HostName' ]"
 Invoke-Check 'checkout recorded for nusku-rebuild' "r=`$(cat ~/.config/nusku/repo); echo `$r; [ `"`$r`" = `"`$HOME/nusku`" ]"
@@ -669,16 +701,31 @@ pol=$(ls "$d"/lib/*/distribution/policies.json 2>/dev/null | head -1)
 url=$(jq -r '.policies.ExtensionSettings["FirefoxColor@mozilla.com"].install_url // empty' "$pol"); echo "$url"
 case "$url" in file:///nix/store/*.xpi) [ -f "${url#file://}" ] ;; *) exit 1 ;; esac
 '@
+    # catppuccin/nix's Firefox Color theme: frame = Mocha crust (#11111b), icons = the accent
+    # (read from the rendered ~/.config/nusku/theme/gtk.css), and firstRunDone set.
     Invoke-Check 'firefox: catppuccin settings in the profile' @'
 s=$(find ~/.config/mozilla/firefox ~/.mozilla/firefox -path '*FirefoxColor@mozilla.com*' -name 'storage.js' 2>/dev/null | head -1)
 [ -n "$s" ] || { echo 'no Firefox Color storage.js'; exit 1; }
-echo "$s"; grep -qi 'catppuccin\|colors' "$s"
+hex=$(sed -n 's/^@define-color accent_color #\([0-9a-fA-F]\{6\}\);.*/\1/p' ~/.config/nusku/theme/gtk.css | head -1)
+[ -n "$hex" ] || { echo 'no accent in ~/.config/nusku/theme/gtk.css'; exit 1; }
+r=$((16#${hex:0:2})); g=$((16#${hex:2:2})); b=$((16#${hex:4:2}))
+echo "$s; accent #$hex"
+jq -e --argjson r "$r" --argjson g "$g" --argjson b "$b" '
+    .firstRunDone == true
+    and .theme.colors.frame == { r: 17, g: 17, b: 27 }
+    and .theme.colors.icons == { r: $r, g: $g, b: $b }' "$s" >/dev/null ||
+    { echo "not the Catppuccin Mocha theme in the accent: $(jq -c '.theme.colors | { frame, icons }' "$s")"; exit 1; }
 '@
 }
+# catppuccin/nix's Chromium/Brave theme extension (Catppuccin Mocha, from the Chrome Web Store),
+# listed for the browser's first start. test/eval/hyperv.nix fails if catppuccin/nix changes the id.
+$catppuccinCrx = 'bkkmolkhemgaeaeggcmfbghljjjoofoh'
 foreach ($b in @(@{ id = 'chromium'; dir = '.config/chromium' }, @{ id = 'brave'; dir = '.config/BraveSoftware/Brave-Browser' })) {
     if (Test-App $b.id) {
         Invoke-Check "$($b.id): catppuccin extension listed" @"
-ls ~/$($b.dir)/'External Extensions'/*.json 2>/dev/null | head -3 | grep . || { echo 'no External Extensions'; exit 1; }
+j=~/$($b.dir)/'External Extensions'/$catppuccinCrx.json
+[ -f "`$j" ] || { echo "no `$j"; ls ~/$($b.dir)/'External Extensions'/ 2>&1 | head -3; exit 1; }
+echo "`$j"; jq -e '.external_update_url' "`$j"
 "@
     }
 }

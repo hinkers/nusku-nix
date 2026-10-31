@@ -9,6 +9,7 @@
 #                                checkout); sudo only activates. Returns nixos-rebuild's status.
 #                                NUSKU_FLAKE_ATTR, when set, is built instead of HOST: only the
 #                                Hyper-V test VM sets it, to HOST-hyperv-test (test/hyperv).
+#                                Any value not ending in -hyperv-test is refused (status 2).
 
 nix_flakes_config() {
     case "${NIX_CONFIG:-}" in
@@ -32,6 +33,15 @@ _rebuild_sudo_flag() {
 nusku_rebuild() {
     nix_flakes_config
     local attr="${NUSKU_FLAKE_ATTR:-$2}"
+    if [ -n "${NUSKU_FLAKE_ATTR:-}" ]; then
+        case "$NUSKU_FLAKE_ATTR" in
+            ?*-hyperv-test) ;;
+            *)
+                printf 'NUSKU_FLAKE_ATTR=%s refused: it is only for the Hyper-V test VM and must end in -hyperv-test (test/hyperv). Unset it to build %s.\n' "$NUSKU_FLAKE_ATTR" "$2" >&2
+                return 2
+                ;;
+        esac
+    fi
     [ "$attr" = "$2" ] || printf 'Building %s (NUSKU_FLAKE_ATTR) instead of %s\n' "$attr" "$2" >&2
     nixos-rebuild switch --flake "$1#$attr" "$(_rebuild_sudo_flag)"
 }
