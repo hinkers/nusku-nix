@@ -1,0 +1,1 @@
+hybrid GPU needs prime.intelBusId/amdgpuBusId and nvidiaBusId in settings.json

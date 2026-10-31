@@ -1,0 +1,3 @@
+{ "hostname": "gpu-hybrid-intel", "user": "nusku", "gpu": "hybrid-intel", "nvidia": "open",
+  "prime": { "intelBusId": "PCI:0:2:0", "nvidiaBusId": "PCI:1:0:0" },
+  "panels": [ { "output": "eDP-1", "scale": 1.25 } ], "accent": "blue" }

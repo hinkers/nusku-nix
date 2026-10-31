@@ -1,0 +1,2 @@
+{ "hostname": "gpu-hybrid-amd", "user": "nusku", "gpu": "hybrid-amd", "nvidia": "proprietary",
+  "prime": { "amdgpuBusId": "PCI:5:0:0", "nvidiaBusId": "PCI:1:0:0" }, "accent": "blue" }

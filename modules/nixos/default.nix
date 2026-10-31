@@ -3,6 +3,7 @@
   imports = [
     ./options.nix
     ./base.nix
+    ./gpu.nix
   ];
 
   networking.hostName = config.nusku.hostname;
