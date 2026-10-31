@@ -531,7 +531,8 @@ grep -q 'Building $FlakeAttr' ~/install.out || exit 1
 Invoke-Check 'detection: timedatectl / localectl output parses' @"
 cd ~/nusku && . lib/sh/detect.sh
 unset NUSKU_TIMEZONE NUSKU_LOCALE NUSKU_KEYMAP
-tz=`$(timedatectl show -p Timezone --value); loc=`$(_detect_localectl 'System Locale'); km=`$(_detect_localectl 'VC Keymap')
+tz=`$(timedatectl show -p Timezone --value); loc=`$(_detect_localectl 'System Locale'); km=`$(detect_keymap)
+echo "localectl: `$(localectl status | sed -n 's/^ *\(VC Keymap\|X11 Layout\): */\1=/p' | tr '\n' ' ')"
 gpu=`$(detect_gpu)
 echo "timezone=`$tz locale=`$loc keymap=`$km gpu=`$gpu"
 [ "`$tz" = '$($settingsObj.timezone)' ] && [ "`$loc" = 'LANG=$($settingsObj.locale)' ] && [ "`$km" = '$($settingsObj.keymap)' ] && [ "`$gpu" = vm ]
@@ -972,10 +973,21 @@ echo "nusku-rebuild exit `$rc; generations `$g1 -> `$g2"
 [ "`$g1" = "`$g2" ] || { echo 'same system, but a new generation'; exit 3; }
 "@
 $null = Copy-FromGuest '~/rebuild2.out' (Join-Path $OutDir 'rebuild2.out')
+# /boot is root-only (0700), so everything under it is read with sudo. systemd-boot entry files
+# are named by hash (nixos-<hash>.conf), so the generations are counted from `bootctl list`
+# titles ("NixOS (Generation N ..."), else from the entry files; GRUB lists one menuentry per
+# generation under "NixOS - All configurations".
 Invoke-Check 'rollback generation exists' @'
 g=$(ls -d /nix/var/nix/profiles/system-*-link | wc -l)
-b=$(sudo -n sh -c 'ls /boot/loader/entries/ 2>/dev/null | grep -c generation')
-echo "$g system generations, $b boot entries"
+if sudo -n test -f /boot/grub/grub.cfg; then
+    b=$(sudo -n grep -cE 'menuentry "NixOS - Configuration [0-9]+' /boot/grub/grub.cfg); how='GRUB menu entries'
+else
+    b=$(sudo -n bootctl list --no-pager 2>/dev/null | grep -cE '^ *title: NixOS \(Generation [0-9]+'); how='systemd-boot entries (bootctl list)'
+    if [ "$b" -eq 0 ]; then
+        b=$(sudo -n sh -c 'ls /boot/loader/entries/' 2>/dev/null | grep -cE '^nixos-.*\.conf$'); how='systemd-boot entry files'
+    fi
+fi
+echo "$g system generations, $b $how"
 [ "$g" -ge 2 ] && [ "$b" -ge 2 ]
 '@
 

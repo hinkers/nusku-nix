@@ -69,20 +69,38 @@ function M.seed(force)
   return ok, "repo"
 end
 
+-- The plugins a restore left broken, sorted by name. Local plugins (a `dir` outside lazy.nvim's
+-- root: nvim-treesitter and its textobjects come from the Nix store, lua/plugins/nusku-nix.lua)
+-- are not lazy.nvim's to install or move, and its tasks on them can fail harmlessly (`helptags`
+-- can't write into the read-only store), so they count only when their directory is missing.
+---@param need_installed? boolean also count a lazy-managed plugin that isn't installed (the sync)
+---@return string[]
+function M.failed(need_installed)
+  local Plugin = require("lazy.core.plugin")
+  local bad = {}
+  for name, plugin in pairs(require("lazy.core.config").plugins) do
+    local state = plugin._ or {}
+    local broken
+    if state.is_local then
+      broken = not state.installed
+    else
+      broken = (need_installed and not state.installed) or Plugin.has_errors(plugin)
+    end
+    if broken then
+      bad[#bad + 1] = name
+    end
+  end
+  table.sort(bad)
+  return bad
+end
+
 -- After a reseed because the repo's pins changed: put the installed plugins on them, and stamp
 -- the copy only when every plugin got there.
 function M.restore()
   vim.schedule(function()
     vim.notify("Nusku: the config's lazy-lock.json changed; restoring plugins to its revisions.", vim.log.levels.WARN)
     require("lazy.manage").restore({ show = false }):wait(function()
-      local Plugin = require("lazy.core.plugin")
-      local bad = {}
-      for name, plugin in pairs(require("lazy.core.config").plugins) do
-        if Plugin.has_errors(plugin) then
-          bad[#bad + 1] = name
-        end
-      end
-      table.sort(bad)
+      local bad = M.failed()
       local names = #bad > 5 and table.concat(vim.list_slice(bad, 1, 5), ", ") .. (", ... %d in all"):format(#bad)
         or table.concat(bad, ", ")
       if #bad == 0 and M.commit() then

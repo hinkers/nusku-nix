@@ -118,6 +118,25 @@ fake_panel() {
     [ "$output" = uk ]
 }
 
+@test "detect_keymap: VC Keymap (unset), as on a fresh NixOS, falls back to the X11 layout" {
+    # Exactly what `localectl status` printed on the Hyper-V test VM (Task 12).
+    stub localectl "printf '   System Locale: LANG=en_AU.UTF-8\n       VC Keymap: (unset)\n      X11 Layout: us\n'"
+    run detect 'detect_locale; detect_keymap'
+    [ "$output" = $'en_AU.UTF-8\nus' ]
+    stub localectl "printf '   System Locale: LANG=en_AU.UTF-8\n       VC Keymap: (unset)\n      X11 Layout: de\n'"
+    run detect detect_keymap
+    [ "$output" = de ]
+}
+
+@test "detect_keymap: neither VC Keymap nor X11 Layout set gives us, never a placeholder" {
+    stub localectl "printf '   System Locale: LANG=en_AU.UTF-8\n       VC Keymap: (unset)\n      X11 Layout: (unset)\n'"
+    run detect detect_keymap
+    [ "$output" = us ]
+    stub localectl "printf '   System Locale: LANG=en_AU.UTF-8\n       VC Keymap: \n'"
+    run detect detect_keymap
+    [ "$output" = us ]
+}
+
 @test "detect_*: fall back to UTC, en_US.UTF-8 and us without timedatectl or localectl" {
     stub timedatectl 'exit 1'
     stub localectl 'exit 1'

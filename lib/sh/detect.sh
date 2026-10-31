@@ -119,11 +119,15 @@ detect_timezone() {
     printf '%s\n' "${tz:-UTC}"
 }
 
-# _detect_localectl FIELD: a value from `localectl status` ("n/a" counts as none).
+# _detect_localectl FIELD: a value from `localectl status`. "n/a", "(unset)" (a fresh NixOS
+# prints "VC Keymap: (unset)") and any other "(...)" placeholder count as none.
 _detect_localectl() {
     local v
     v="$(localectl status 2>/dev/null | sed -n "s/^ *$1: *//p" | head -n1)"
-    [ "$v" = n/a ] || printf '%s' "$v"
+    case "$v" in
+        n/a | "("*")") ;;
+        *) printf '%s' "$v" ;;
+    esac
 }
 
 detect_locale() {

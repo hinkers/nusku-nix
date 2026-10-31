@@ -16,20 +16,14 @@ local function fail(msg)
 end
 
 local function plugins()
-  local Plugin = require("lazy.core.plugin")
-  local bad = {}
   -- Reset lazy.nvim's lockfile to the repo's pins and make lazy.nvim re-read it.
   if not require("nusku.lockfile").seed(true) then
     return "could not copy " .. require("nusku.lockfile").repo
   end
   require("lazy.manage.lock")._loaded = false
   require("lazy").restore({ wait = true, show = false })
-  for name, p in pairs(require("lazy.core.config").plugins) do
-    if not p._.installed or Plugin.has_errors(p) then
-      bad[#bad + 1] = name
-    end
-  end
-  table.sort(bad)
+  -- Every lazy-managed plugin installed without errors; the Nix-provided (local) ones present.
+  local bad = require("nusku.lockfile").failed(true)
   if #bad > 0 then
     return "plugins not installed: " .. table.concat(bad, ", ")
   end

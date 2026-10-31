@@ -18,11 +18,17 @@ else
 end
 LUA
     # restore() with lazy.nvim stubbed: arg[1] names the plugins whose restore task failed.
+    # ts.nvim is a local plugin (a Nix store `dir`, as nvim-treesitter); arg[2] = "missing"
+    # makes its directory missing.
     cat >"$BATS_TEST_TMPDIR/restore.lua" <<'LUA'
 package.path = "config/nvim/lua/?.lua;" .. package.path
 local failed = {}
 for name in (arg[1] or ""):gmatch("[^,]+") do failed[name] = true end
-package.loaded["lazy.core.config"] = { plugins = { ["a.nvim"] = {}, ["b.nvim"] = {} } }
+package.loaded["lazy.core.config"] = { plugins = {
+  ["a.nvim"] = { _ = { installed = true } },
+  ["b.nvim"] = { _ = { installed = true } },
+  ["ts.nvim"] = { _ = { is_local = true, installed = arg[2] ~= "missing" } },
+} }
 package.loaded["lazy.core.plugin"] = {
   has_errors = function(p) for name, q in pairs(package.loaded["lazy.core.config"].plugins) do
     if q == p then return failed[name] == true end end end,
@@ -36,6 +42,24 @@ package.loaded["lazy.manage"] = {
 vim.notify = function(msg, level) io.stdout:write("notify " .. level .. ": " .. msg .. "\n") end
 require("nusku.lockfile").restore()
 vim.wait(200, function() return false end)
+LUA
+    # nusku.sync with lazy.nvim stubbed: a.nvim is lazy-managed, nvim-treesitter is local (a Nix
+    # store `dir`). arg[1]: plugins whose tasks failed; arg[2]: plugins not installed / missing.
+    cat >"$BATS_TEST_TMPDIR/sync.lua" <<'LUA'
+package.path = "config/nvim/lua/?.lua;" .. package.path
+local function set(s) local t = {} for n in (s or ""):gmatch("[^,]+") do t[n] = true end return t end
+local failed, absent = set(arg[1]), set(arg[2])
+package.loaded["lazy.core.config"] = { plugins = {
+  ["a.nvim"] = { _ = { installed = not absent["a.nvim"] } },
+  ["nvim-treesitter"] = { _ = { is_local = true, installed = not absent["nvim-treesitter"] } },
+} }
+package.loaded["lazy.core.plugin"] = {
+  has_errors = function(p) for name, q in pairs(package.loaded["lazy.core.config"].plugins) do
+    if q == p then return failed[name] == true end end end,
+}
+package.loaded["lazy.manage.lock"] = {}
+package.loaded["lazy"] = { restore = function() end, load = function() end }
+require("nusku.sync").run()
 LUA
 }
 
@@ -156,6 +180,45 @@ restore() { run nvim --headless -l "$BATS_TEST_TMPDIR/restore.lua" "$@"; }
     [ "$(cat "$copy.source")" = "$(sha '{ "pins": "b" }')" ]
     seed
     [ "$output" = "true nil" ]
+}
+
+@test "restore: a Nix-provided (local) plugin whose tasks failed (helptags in the store) is not a failure" {
+    store a '{ "pins": "a" }'
+    seed
+    store b '{ "pins": "b" }'
+    seed
+    restore ts.nvim
+    [[ "$output" == *"notify 2: Nusku: plugins restored to the new pins."* ]]
+    [ "$(cat "$copy.source")" = "$(sha '{ "pins": "b" }')" ]
+    restore ts.nvim,b.nvim
+    [[ "$output" == *"did not finish (b.nvim);"* ]]
+}
+
+@test "restore: a local plugin whose directory is missing is a failure" {
+    store a '{ "pins": "a" }'
+    seed
+    store b '{ "pins": "b" }'
+    seed
+    restore "" missing
+    [[ "$output" == *"did not finish (ts.nvim);"* ]]
+    [ "$(cat "$copy.source")" = "$(sha '{ "pins": "a" }')" ]
+}
+
+@test "sync: Nix-provided (local) plugins are not reported missing; lazy-managed ones still are" {
+    store a '{ "pins": "a" }'
+    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" nvim-treesitter ""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"nusku.sync: 2 plugins at their lazy-lock.json revisions"* ]]
+    [[ "$output" != *FAILED* ]]
+    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" "" a.nvim
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"nusku.sync: FAILED: plugins not installed: a.nvim"* ]]
+    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" a.nvim ""
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"plugins not installed: a.nvim"* ]]
+    run nvim --headless -l "$BATS_TEST_TMPDIR/sync.lua" "" nvim-treesitter
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"plugins not installed: nvim-treesitter"* ]]
 }
 
 @test "lazy.lua restores only with a UI (headless starts would race nusku.sync)" {

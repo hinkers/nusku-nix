@@ -5,8 +5,8 @@ Arch. You install minimal NixOS by hand once and take a checkpoint (`clean-nixos
 the test loop restores that checkpoint, copies your working tree in, runs `./install.sh`,
 reboots into the desktop, checks it and takes screenshots.
 
-The VM is called `nusku-nix-test`. nusku-arch's VM (`nusku-test`) is a different VM; nothing
-here touches it.
+The VM is called `nusku-nix-test` by default. nusku-arch's VM (`nusku-test`) is only touched
+if you pass its name with `-Name` (reusing it works; see section 3).
 
 ## 1. One-time host setup
 
@@ -75,68 +75,44 @@ Start-VM -Name nusku-nix-test
 
 ### First boot: let the test loop in
 
-Log in on the console as `tester`. The loop needs SSH, passwordless sudo, the Hyper-V guest
-services (KVP reports the VM's IP address to the host) and git. They go in a file of their own
-next to `configuration.nix`.
+The loop needs SSH with the test key, passwordless sudo, the Hyper-V guest services (KVP
+reports the VM's IP address to the host) and git. You switch SSH on by hand in the VM, and a
+script on the host does the rest over SSH.
 
-First type this by hand and enter your password, so sudo doesn't ask again while the typed
-block below runs. If it asks during the block, the lines after it go into the password prompt.
+Hyper-V's **Clipboard → Type clipboard text** garbles text on the NixOS text console, so don't
+paste into the VM window. Type these two commands by hand.
 
-```bash
-sudo -v
-```
+1. In the VM, log in on the console as `tester`. Turn on SSH (the installer's
+   `configuration.nix` has the line, commented out) and rebuild. sudo asks for your password:
 
-Then, within five minutes (sudo's timeout), type the first block below into the VM. To do
-that, copy it on the host and use the VM window's menu: **Clipboard → Type clipboard text**.
+   ```bash
+   sudo sed -i 's/# *services.openssh.enable/services.openssh.enable/' /etc/nixos/configuration.nix
+   sudo nixos-rebuild switch
+   ```
 
-```bash
-sudo tee /etc/nixos/nusku-test.nix > /dev/null <<'EOF'
-# Hyper-V test VM only: what the nusku-nix test loop needs before Nusku's first build.
-{ pkgs, ... }:
-{
-  services.openssh.enable = true;
-  security.sudo.extraRules = [
-    { users = [ "tester" ]; commands = [ { command = "ALL"; options = [ "NOPASSWD" ]; } ]; }
-  ];
-  virtualisation.hypervGuest.enable = true;
-  environment.systemPackages = [ pkgs.git ];
-}
-EOF
-sudo sed -i 's|\./hardware-configuration\.nix|./hardware-configuration.nix ./nusku-test.nix|' /etc/nixos/configuration.nix
-grep -n 'nusku-test.nix' /etc/nixos/configuration.nix
-```
+2. On the host, from the repo:
 
-The `grep` must print the `imports` line with both files,
-`./hardware-configuration.nix ./nusku-test.nix`. If it prints nothing, add `./nusku-test.nix`
-to the `imports` list by hand (`sudo nano /etc/nixos/configuration.nix`).
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File test\hyperv\Initialize-NuskuNixVM.ps1
+   ```
 
-Then build it (run `sudo -v` again first if more than five minutes have passed):
+   It finds the VM's IP address, then does three things:
+   - It copies `$HOME\.ssh\nusku_test.pub` into `~tester/.ssh/authorized_keys`. Type
+     `tester`'s password once.
+   - It copies [`guest-setup.sh`](guest-setup.sh) into the VM and runs it with sudo in a
+     terminal. sudo asks for the password once. The script writes `/etc/nixos/nusku-test.nix`
+     (SSH, NOPASSWD sudo for `tester`, `virtualisation.hypervGuest.enable`, git), adds it to
+     `imports` in `configuration.nix` and runs `nixos-rebuild switch`.
+   - It checks key-only SSH: `sudo -n true && git --version && echo ready` must print a git
+     version and `ready`.
 
-```bash
-sudo nixos-rebuild switch
-```
+   Options: `-Name` (default `nusku-nix-test`), `-User` (default `tester`), and `-IpAddress`
+   for when Hyper-V doesn't report the address yet (`ip -4 addr` in the VM shows it). If the
+   address is missing, wait a few seconds and run the script again.
 
-It should end without errors.
-
-Now put the host's key in `~tester/.ssh/authorized_keys`. Run this on the host and type the
-password once. SSH still accepts passwords until Nusku's build turns them off.
-
-```powershell
-$ip = @((Get-VMNetworkAdapter -VMName nusku-nix-test).IPAddresses) | Where-Object { $_ -match '^\d+(\.\d+){3}$' } | Select-Object -First 1
-$ip
-Get-Content "$HOME\.ssh\nusku_test.pub" | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL tester@$ip "umask 077; mkdir -p ~/.ssh && tr -d '\r' >> ~/.ssh/authorized_keys"
-```
-
-If `$ip` is empty, wait a few seconds and run the first line again. If it stays empty,
-check in the VM that `systemctl status hv-kvp` is running.
-
-Check the key works, with no password prompt:
-
-```powershell
-ssh -i "$HOME\.ssh\nusku_test" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL tester@$ip 'sudo -n true && git --version && echo ready'
-```
-
-It must print a git version and `ready`.
+**Reusing a VM you already have** works the same way: pass its name, for example
+`-Name nusku-test` for nusku-arch's VM after a NixOS base install. Its other checkpoints, such as
+`clean-arch`, stay. Pass the same `-Name` to the test loop (section 5).
 
 The key lives in `~/.ssh/authorized_keys`, not in the NixOS config, so it survives Nusku's first
 build, which replaces everything from `/etc/nixos`. Section 5 explains how the loop keeps SSH
