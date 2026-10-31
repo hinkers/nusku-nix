@@ -1,0 +1,1 @@
+settings.json: accent "orange" is not a Catppuccin accent
