@@ -100,8 +100,9 @@ in
       (builtins.head (lib.splitString ''paths.nusku .. "/local")'' main))) == 2;
   "hm: gpu.lua at ~/.config/nusku/gpu.lua from the GPU module" =
     cfgText hm "nusku/gpu.lua" == full.nusku.internal.hyprGpuLua;
-  "hm: kitty linked, no remembered window size" =
+  "hm: kitty linked, no remembered window size, semi-transparent" =
     has "remember_window_size no" (builtins.readFile hm.xdg.configFile."kitty/kitty.conf".source)
+    && has "background_opacity 0.85" (builtins.readFile hm.xdg.configFile."kitty/kitty.conf".source)
     && hm.xdg.configFile ? "kitty/mocha.conf";
   "hm: gtk css imports the rendered theme" =
     has "nusku/theme/gtk.css" hm.gtk.gtk3.extraCss && has "nusku/theme/gtk.css" hm.gtk.gtk4.extraCss;
