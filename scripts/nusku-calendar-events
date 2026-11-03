@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""nusku-calendar-events FIRST LAST: the events between two dates (YYYY-MM-DD, inclusive) as JSON,
+for the Nusku shell's calendar (config/quickshell/nusku/menus/Calendar.qml):
+
+  {"gnomeCalendar": true, "days": {"2026-11-03": [{"time": "09:30", "summary": "...", "uid": "..."}]}}
+
+Events come from GNOME's calendar service (evolution-data-server), so calendars added in Online
+Accounts (Google, Nextcloud) are included. No calendars, or no service: "days" is empty.
+"""
+
+import datetime
+import json
+import os
+import shutil
+import sys
+
+import gi
+
+from gi.repository import GLib  # noqa: E402
+
+try:
+    gi.require_version("EDataServer", "1.2")
+    gi.require_version("ECal", "2.0")
+    try:  # libical-glib 4 (Arch), else 3 (nixpkgs); the calls used here are in both
+        gi.require_version("ICalGLib", "4.0")
+    except ValueError:
+        gi.require_version("ICalGLib", "3.0")
+    from gi.repository import ECal, EDataServer, ICalGLib  # noqa: E402
+except (ValueError, ImportError):
+    ECal = None
+
+
+def _local(t):
+    """ICalGLib.Time -> (datetime.date or datetime.datetime in local time, is_all_day)."""
+    if t.is_date():
+        return datetime.date(t.get_year(), t.get_month(), t.get_day()), True
+    zone = t.get_timezone()
+    if t.is_utc() or zone is not None:
+        if zone is None:
+            zone = ICalGLib.Timezone.get_utc_timezone()
+        return datetime.datetime.fromtimestamp(t.as_timet_with_zone(zone)), False
+    # Floating time: already local.
+    return datetime.datetime(t.get_year(), t.get_month(), t.get_day(),
+                             t.get_hour(), t.get_minute(), t.get_second()), False
+
+
+def _local_zone():
+    """This machine's time zone (from /etc/localtime), or None."""
+    try:
+        name = os.path.realpath("/etc/localtime").split("/zoneinfo/", 1)[1]
+    except IndexError:
+        return None
+    return ICalGLib.Timezone.get_builtin_timezone(name)
+
+
+class Events:
+    """Event instances per day, read from evolution-data-server in a worker thread."""
+
+    def __init__(self):
+        self.clients = None
+
+    def _connect(self):
+        if self.clients is not None:
+            return self.clients
+        self.clients = []
+        if ECal is None:
+            return self.clients
+        try:
+            registry = EDataServer.SourceRegistry.new_sync(None)
+            sources = registry.list_enabled(EDataServer.SOURCE_EXTENSION_CALENDAR)
+        except GLib.Error:
+            return self.clients
+        zone = _local_zone()
+        for source in sources:
+            try:
+                client = ECal.Client.connect_sync(source, ECal.ClientSourceType.EVENTS, 5, None)
+            except GLib.Error:
+                continue
+            if zone is not None:
+                client.set_default_timezone(zone)  # events without a time zone are local time
+            self.clients.append(client)
+        return self.clients
+
+    def fetch(self, first, last):
+        """{date: [(sort_key, time_text, summary, uid)]} for first..last (dates, inclusive)."""
+        days = {}
+        start = int(datetime.datetime.combine(first, datetime.time()).timestamp())
+        end = int(datetime.datetime.combine(last + datetime.timedelta(days=1), datetime.time()).timestamp())
+
+        def add(comp, istart, iend, *_):
+            begin, all_day = _local(istart)
+            finish, _ = _local(iend) if iend else (begin, all_day)
+            d0 = begin if all_day else begin.date()
+            d1 = finish if all_day else finish.date()
+            if all_day:
+                d1 = d1 - datetime.timedelta(days=1)  # all-day end dates are exclusive
+            elif d1 > d0 and isinstance(finish, datetime.datetime) and finish.time() == datetime.time():
+                d1 = d1 - datetime.timedelta(days=1)  # ends at midnight: not on the next day
+            d1 = max(d0, d1)
+            summary = comp.get_summary() or "(no title)"
+            uid = comp.get_uid() or ""
+            day = max(d0, first)
+            while day <= min(d1, last):
+                if all_day:
+                    entry = ("0", "All day", summary, uid)
+                elif day == d0:
+                    entry = ("1" + begin.strftime("%H:%M"), begin.strftime("%H:%M"), summary, uid)
+                else:
+                    entry = ("0", "Continues", summary, uid)
+                days.setdefault(day, []).append(entry)
+                day += datetime.timedelta(days=1)
+            return True
+
+        for client in self._connect():
+            try:
+                client.generate_instances_sync(start, end, None, add)
+            except GLib.Error:
+                continue
+        for entries in days.values():
+            entries.sort()
+        return days
+
+
+def main(argv):
+    if len(argv) != 3:
+        print("usage: nusku-calendar-events FIRST LAST (YYYY-MM-DD)", file=sys.stderr)
+        return 2
+    try:
+        first, last = (datetime.date.fromisoformat(a) for a in argv[1:])
+    except ValueError:
+        print("nusku-calendar-events: dates must be YYYY-MM-DD", file=sys.stderr)
+        return 2
+    days = Events().fetch(first, last)
+    out = {
+        "gnomeCalendar": shutil.which("gnome-calendar") is not None,
+        "days": {d.isoformat(): [{"time": t, "summary": s, "uid": u} for _k, t, s, u in entries]
+                 for d, entries in sorted(days.items())},
+    }
+    json.dump(out, sys.stdout)
+    print()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

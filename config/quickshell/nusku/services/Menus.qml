@@ -1,0 +1,26 @@
+// The menus that grow out of the frame, besides quick settings (PanelState): the calendar
+// (from under the clock), the app launcher (up from the bottom) and the power menu (in from
+// the right). One menu is open at a time, quick settings included.
+pragma Singleton
+import QtQuick
+import Quickshell
+
+Singleton {
+    id: root
+    readonly property DrawerState calendar: DrawerState { name: "calendar"; onOpened: root.closeAll(this) }
+    readonly property DrawerState launcher: DrawerState { name: "launcher"; onOpened: root.closeAll(this) }
+    readonly property DrawerState session: DrawerState { name: "session"; onOpened: root.closeAll(this) }
+    readonly property list<DrawerState> all: [calendar, launcher, session]
+    readonly property bool anyOpen: PanelState.open || all.some(m => m.open)
+
+    // Close every menu but `keep` (null: all of them).
+    function closeAll(keep) {
+        for (const m of all) if (m !== keep) m.open = false;
+        if (keep !== PanelState) PanelState.open = false;
+    }
+
+    Connections {
+        target: PanelState
+        function onOpenChanged() { if (PanelState.open) root.closeAll(PanelState); }
+    }
+}

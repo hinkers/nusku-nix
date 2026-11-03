@@ -134,8 +134,7 @@ STUB
     grep -qx 'bluetoothctl trust BB:BB:BB:BB:BB:03' "$CALLS"
 }
 
-# --- nusku-menu-power --------------------------------------------------------------------
-
+# Stubs for niri and systemctl (the keybind menu runs binds through `niri msg action`).
 session_stubs() {
     export NIRI_ARGS="$BATS_TEST_TMPDIR/niri-args"
     : >"$NIRI_ARGS"
@@ -143,52 +142,6 @@ session_stubs() {
     printf '#!/usr/bin/env bash\necho "systemctl $*" >>"$CALLS"\n' >"$BATS_TEST_TMPDIR/bin/systemctl"
     printf '#!/usr/bin/env bash\necho "hyprlock" >>"$CALLS"\n' >"$BATS_TEST_TMPDIR/bin/hyprlock"
     chmod +x "$BATS_TEST_TMPDIR/bin/niri" "$BATS_TEST_TMPDIR/bin/systemctl" "$BATS_TEST_TMPDIR/bin/hyprlock"
-}
-
-@test "power menu sizes the list with -theme-str, not the removed -lines option" {
-    session_stubs
-    run scripts/nusku-menu-power
-    [ "$status" -eq 0 ]
-    [ "$(grep -c -- '-lines' "$ROFI_ARGS")" -eq 0 ]
-    grep -qF 'listview { lines: 5; }' "$ROFI_ARGS"
-    grep -qF -- '-theme nusku' "$ROFI_ARGS"
-    [ "$(cat "$ROFI_ARGS.stdin")" = "$(printf 'Lock\nLogout\nSuspend\nReboot\nShutdown')" ]
-    [ ! -s "$CALLS" ]
-}
-
-@test "power menu confirm dialog uses two lines; Yes reboots" {
-    session_stubs
-    picks Reboot Yes
-    run scripts/nusku-menu-power
-    [ "$status" -eq 0 ]
-    [ "$(grep -c -- '-lines' "$ROFI_ARGS")" -eq 0 ]
-    grep -qF 'listview { lines: 2; }' "$ROFI_ARGS"
-    grep -qF -- '-p Reboot?' "$ROFI_ARGS"
-    [ "$(cat "$CALLS")" = "systemctl reboot" ]
-}
-
-@test "power menu: No or Esc at the confirm does nothing" {
-    session_stubs
-    picks Shutdown No
-    run scripts/nusku-menu-power
-    [ "$status" -eq 0 ]
-    picks Shutdown
-    run scripts/nusku-menu-power
-    [ "$status" -eq 0 ]
-    [ ! -s "$CALLS" ]
-}
-
-@test "power menu: lock, logout and suspend need no confirm" {
-    session_stubs
-    picks Lock
-    run scripts/nusku-menu-power
-    picks Logout
-    run scripts/nusku-menu-power
-    picks Suspend
-    run scripts/nusku-menu-power
-    [ "$(cat "$CALLS")" = "$(printf 'hyprlock\nsystemctl suspend')" ]
-    [ "$(cat "$NIRI_ARGS")" = 'msg action quit --skip-confirmation' ]
-    [ "$(grep -c 'lines: 2' "$ROFI_ARGS")" -eq 0 ]
 }
 
 # --- nusku-menu-keybinds -----------------------------------------------------------------

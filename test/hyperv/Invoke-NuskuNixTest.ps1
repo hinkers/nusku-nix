@@ -19,8 +19,8 @@
     5. Set up probes (a spawn-at-startup in local.kdl, an Obsidian vault), reboot, wait for
        SDDM autologin to start niri and the Nusku shell (bar).
     6. Check the session, theming, menus, apps and the ledger's VM items; screenshots with grim
-       (desktop, fastfetch, rofi, keybinds, quick settings, calendar, GTK, and the picked
-       Firefox / Neovim / Obsidian); a second rebuild must change nothing; a rollback
+       (desktop, fastfetch, launcher, keybinds, quick settings, power menu, calendar, GTK, and
+       the picked Firefox / Neovim / Obsidian); a second rebuild must change nothing; a rollback
        generation must exist. Print a PASS/WARN/FAIL table.
     On error the VM is left running for debugging.
     Results go to test/screenshots/<timestamp>/ (gitignored): screenshots, install.log,
@@ -600,7 +600,7 @@ path=$(environ_of "$p" | sed -n 's/^PATH=//p')
 echo "$path"
 case ":$path:" in *":/etc/profiles/per-user/$(id -un)/bin:"*) ;; *) echo 'no per-user profile'; exit 1 ;; esac
 case ":$path:" in *":/run/current-system/sw/bin:"*) ;; *) echo 'no system profile'; exit 1 ;; esac
-for c in nusku-wallpaper nusku-calendar nusku-quick qs niri xwayland-satellite; do PATH="$path" command -v "$c" >/dev/null || { echo "$c not found on it"; exit 1; }; done
+for c in nusku-wallpaper nusku-calendar-events nusku-quick qs niri xwayland-satellite; do PATH="$path" command -v "$c" >/dev/null || { echo "$c not found on it"; exit 1; }; done
 '@
 Invoke-Check 'cursor theme' @"
 p=`$(shellpid)
@@ -883,7 +883,7 @@ function Invoke-Session([string]$Cmd) {
 $script:shotFailed = $false
 # niri has no action to move the cursor, so it stays where it is (a no-op kept for the calls below).
 $moveCursor = 'true'
-$closeAll = 'for p in kitty rofi firefox obsidian thunar nusku-calendar; do pkill -u "$(id -u)" -f "(^|/)\.?$p(-wrapped)?( |$)" 2>/dev/null; done; pkill -u "$(id -u)" -f "[o]bsidian" 2>/dev/null; qs -c nusku ipc call panel close >/dev/null 2>&1; true'
+$closeAll = 'for p in kitty rofi firefox obsidian thunar; do pkill -u "$(id -u)" -f "(^|/)\.?$p(-wrapped)?( |$)" 2>/dev/null; done; pkill -u "$(id -u)" -f "[o]bsidian" 2>/dev/null; for m in panel calendar launcher session; do qs -c nusku ipc call $m close >/dev/null 2>&1; done; true'
 
 if ($niriUp) {
     Write-Step 'Taking screenshots'
@@ -899,9 +899,10 @@ if ($niriUp) {
     Save-Screenshot 'fastfetch.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
-    Invoke-Session 'rofi -show drun -theme nusku'
-    Start-Sleep -Seconds 4   # software rendering: give rofi time to map and animate in
-    Save-Screenshot 'rofi.png'
+    # The app launcher (Super + Space), up from the bottom of the frame.
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call launcher open >/dev/null')
+    Start-Sleep -Seconds 4   # software rendering: give it time to map and slide out
+    Save-Screenshot 'launcher.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
     # The keybind menu (Super + /), started the way its bind starts it.
@@ -919,18 +920,24 @@ if ($niriUp) {
     Save-Screenshot 'quick-settings.png'
     $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call panel close >/dev/null')
 
-    # The clock's drop-down calendar: it re-executes itself with gtk4-layer-shell preloaded.
-    Invoke-Session 'nusku-calendar'
-    Start-Sleep -Seconds 5
-    Invoke-Check 'calendar: LD_PRELOAD re-exec (gtk4-layer-shell)' @'
-p=$(pgrep -u "$(id -u)" -f 'nusku-calendar' | head -1)
-[ -n "$p" ] || { echo 'nusku-calendar is not running'; exit 1; }
-l=$(environ_of "$p" | sed -n 's/^LD_PRELOAD=//p'); echo "LD_PRELOAD=$l"
-case "$l" in *libgtk4-layer-shell.so*) ;; *) exit 1 ;; esac
-niri msg --json layers | jq -r '.[].namespace' | sort -u | tr '\n' ' '
+    # The calendar under the clock: the shell's menu, with events from nusku-calendar-events.
+    Invoke-Check 'calendar: events helper answers with JSON' @'
+first=$(date +%Y-%m-01); last=$(date -d "$first +41 days" +%F)
+out=$(nusku-calendar-events "$first" "$last") || exit 1
+echo "$out" | head -c 200; echo
+echo "$out" | jq -e 'has("days") and has("gnomeCalendar")' >/dev/null
 '@
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call calendar open >/dev/null')
+    Start-Sleep -Seconds 3
+    Invoke-Check 'menus: the calendar is out (layer nusku-calendar)' 'niri msg --json layers | jq -r ".[].namespace" | sort -u | tr "\n" " "; niri msg --json layers | jq -e "any(.[]; .namespace == \"nusku-calendar\")" >/dev/null'
     $null = Invoke-Remote ($envPreamble + $moveCursor)
     Save-Screenshot 'calendar.png'
+    $null = Invoke-Remote ($envPreamble + $closeAll)
+
+    # The power menu (Super + Escape), in from the right of the frame.
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call session open >/dev/null')
+    Start-Sleep -Seconds 2
+    Save-Screenshot 'power-menu.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
     # GTK theme (adw-gtk3-dark + the accent from the @import) in Thunar.

@@ -1,15 +1,25 @@
-# nusku-calendar (Python + GTK4): no display here, so only what can be checked without one.
-# The Nix package (modules/home/panels.nix) is built for real once; see the task report.
+# nusku-calendar-events (Python, evolution-data-server): no calendar service here, so only what
+# can be checked without one. The shell's calendar (config/quickshell/nusku/menus/Calendar.qml)
+# reads its JSON.
 
-@test "nusku-calendar is valid Python" {
-    python3 -c 'import sys, ast; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' scripts/nusku-calendar
+@test "nusku-calendar-events is valid Python" {
+    python3 -c 'import sys, ast; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' scripts/nusku-calendar-events
 }
 
-@test "nusku-calendar preloads the gtk4-layer-shell library the package points it at" {
-    grep -qF 'os.environ.get("NUSKU_LAYER_SHELL"' scripts/nusku-calendar
-    ! grep -qF '/usr/lib/' scripts/nusku-calendar || false
+@test "nusku-calendar-events has no GUI (no GTK, no layer shell)" {
+    ! grep -qE 'Gtk|Gdk|LayerShell|LD_PRELOAD' scripts/nusku-calendar-events || false
 }
 
-@test "nusku-calendar points at this repo's installer for GNOME Calendar" {
-    grep -qF './install.sh --apps' scripts/nusku-calendar
+@test "nusku-calendar-events: the JSON the calendar reads (gnomeCalendar, days -> time, summary, uid)" {
+    grep -qF '"gnomeCalendar"' scripts/nusku-calendar-events
+    grep -qF '"days"' scripts/nusku-calendar-events
+    grep -qF 'r.gnomeCalendar' config/quickshell/nusku/menus/Calendar.qml
+    for k in time summary uid; do
+        grep -qF "\"$k\"" scripts/nusku-calendar-events
+        grep -qF "modelData.$k" config/quickshell/nusku/menus/Calendar.qml
+    done
+}
+
+@test "the calendar points at this repo's installer for GNOME Calendar" {
+    grep -qF './install.sh --apps' config/quickshell/nusku/menus/Calendar.qml
 }

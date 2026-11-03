@@ -1,14 +1,17 @@
-// Day, date and time; a click opens the calendar drop-down (nusku-calendar; again closes it).
+// Day, date and time; a click opens the calendar under it (menus/Calendar.qml; again closes it).
 import QtQuick
 import Quickshell
 import qs
+import qs.services
 import qs.widgets
 
 Rectangle {
+    id: root
+    required property ShellScreen screen
     implicitHeight: Theme.barHeight - 8
     implicitWidth: label.implicitWidth + 24
     radius: Theme.radius
-    color: mouse.containsMouse ? Colors.surface1 : Colors.surface0
+    color: mouse.containsMouse || (Menus.calendar.open && Menus.calendar.screen === screen) ? Colors.surface1 : Colors.surface0
 
     SystemClock {
         id: clock
@@ -26,6 +29,6 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["nusku-calendar"])
+        onClicked: Menus.calendar.toggleOn(root.screen)
     }
 }

@@ -160,8 +160,9 @@ What a run does:
    runs detached in the guest and its output is streamed to your terminal.
 4. It reboots. SDDM logs `tester` straight into niri.
 5. It runs the checks and prints a PASS/WARN/FAIL table.
-6. It takes screenshots: desktop, fastfetch (kitty), rofi, keybinds, a notification, quick settings, calendar,
-   GTK (Thunar), plus Firefox, Obsidian and Neovim when they are picked.
+6. It takes screenshots: desktop, fastfetch (kitty), the launcher, keybinds, a notification,
+   quick settings, calendar, the power menu, GTK (Thunar), plus Firefox, Obsidian and Neovim
+   when they are picked.
 7. It runs `nusku-rebuild` again (it must change nothing) and checks that a rollback generation
    exists.
 

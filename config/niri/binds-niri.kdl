@@ -9,7 +9,7 @@ binds {
     Mod+E hotkey-overlay-title="File manager: Thunar" { spawn "thunar"; }
     Mod+B hotkey-overlay-title="Web browser" { spawn "nusku-browser"; }
     Mod+N hotkey-overlay-title="Quick settings" { spawn "qs" "-c" "nusku" "ipc" "call" "panel" "toggle"; }
-    Mod+X hotkey-overlay-title="Power menu" { spawn "nusku-menu-power"; }
+    Mod+X hotkey-overlay-title="Power menu" { spawn "qs" "-c" "nusku" "ipc" "call" "session" "toggle"; }
     Super+Alt+V hotkey-overlay-title="Clipboard history" { spawn "nusku-menu-clipboard"; }
     Super+Alt+W hotkey-overlay-title="Change wallpaper" { spawn "nusku-menu-wallpaper"; }
     Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "nusku-menu-keybinds"; }
@@ -17,7 +17,7 @@ binds {
     // --- niri's defaults -----------------------------------------------------------------
     Mod+Shift+Slash { show-hotkey-overlay; }
     Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty"; }
-    Mod+D hotkey-overlay-title="Run an Application: rofi" { spawn "rofi" "-show" "drun"; }
+    Mod+D hotkey-overlay-title="Run an Application" { spawn "qs" "-c" "nusku" "ipc" "call" "launcher" "toggle"; }
     Super+Alt+L hotkey-overlay-title="Lock the Screen: hyprlock" { spawn "hyprlock"; }
     XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0"; }
     XF86AudioLowerVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1-"; }

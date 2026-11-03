@@ -1,8 +1,9 @@
 # Rofi and the menus: nusku-arch's rofi config and `nusku` theme (Catppuccin Mocha + the accent
-# from ~/.config/nusku/theme/colors.rasi), the keybind, power and clipboard menus, nusku-browser
+# from ~/.config/nusku/theme/colors.rasi), the keybind and clipboard menus, nusku-browser
 # (Super + B) and the launcher clean-up. The wallpaper menu is in niri.nix; the Wi-Fi and
-# Bluetooth pickers in panels.nix. Binds (config/niri/binds-*.kdl) and the shell's power button
-# call the scripts by name. niri's own keybind list is Super + Shift + /.
+# Bluetooth pickers in panels.nix. Binds (config/niri/binds-*.kdl) call the scripts by name; the
+# app launcher and the power menu are the Nusku shell's. niri's own keybind list is
+# Super + Shift + /.
 { osConfig, lib, pkgs, ... }:
 let
   scripts = import ../../lib/scripts.nix { inherit pkgs lib; };
@@ -17,11 +18,6 @@ let
     (scripts.mkScript {
       name = "nusku-menu-clipboard";
       deps = with pkgs; [ cliphist rofi wl-clipboard ];
-    })
-    # systemctl comes from the system (/run/current-system/sw/bin, on every caller's PATH).
-    (scripts.mkScript {
-      name = "nusku-menu-power";
-      deps = [ pkgs.rofi niri osConfig.programs.hyprlock.package ];
     })
     # gtk-launch (gtk3) starts the browser's desktop entry; xdg-mime reads the default.
     (scripts.mkScript {

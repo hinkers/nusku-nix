@@ -75,7 +75,7 @@ in
 
   security.polkit.enable = true;
   services.gnome.gnome-keyring.enable = true;
-  # Calendar sync for the clock drop-down (nusku-calendar) and GNOME Calendar: Online Accounts
+  # Calendar sync for the shell's calendar (nusku-calendar-events) and GNOME Calendar: Online Accounts
   # (Google, Nextcloud) feed evolution-data-server, which the calendar reads events from.
   services.gnome.gnome-online-accounts.enable = true;
   services.gnome.evolution-data-server.enable = true;

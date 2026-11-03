@@ -110,21 +110,31 @@ stacked above and below; Super + O shows them all. The keybinds (`config/niri/bi
   menu, Super + Alt + L lock
 - Super + / searches every bind (and runs the one you pick); Super + Shift + / is niri's list
 
-The bar, the quick settings panel and the notifications are Nusku's own shell, built with
-[Quickshell](https://quickshell.org) (`config/quickshell/nusku`, in your accent colour). The
-bar is the top of a slim frame round the screen (windows sit inside it), and the panel and the
-notifications grow out of the frame's top-right corner:
+The bar and its menus are Nusku's own shell, built with [Quickshell](https://quickshell.org)
+(`config/quickshell/nusku`, in your accent colour). The bar is the top of a slim frame round
+the screen (windows sit inside it), and every menu grows out of the frame:
 
-- The bar: workspaces, the window title, the clock (click for the calendar), the tray, the
-  battery and one pill for network, Bluetooth and notifications.
-- The pill (or Super + N) opens quick settings: Wi-Fi and Bluetooth (› picks a network or a
-  device), Do Not Disturb, night light, airplane mode, keep awake, mute, screenshot, power,
-  brightness and volume, power profiles, what's playing, and the notifications. Right-click
-  the pill's network or Bluetooth icon for its picker, the bell for Do Not Disturb.
-- New notifications pop up in the top right corner; critical ones stay until you close them.
+- The bar: workspaces, the window title, the clock, the tray, the battery and one pill for
+  network, Bluetooth and notifications.
+- The pill (or Super + N) opens quick settings, out of the top-right corner: Wi-Fi and
+  Bluetooth (› picks a network or a device), Do Not Disturb, night light, airplane mode, keep
+  awake, mute, screenshot, power, brightness and volume, power profiles, what's playing, and
+  the notifications. Right-click the pill's network or Bluetooth icon for its picker, the bell
+  for Do Not Disturb.
+- New notifications come out of the same corner; critical ones stay until you close them.
+- The clock opens the calendar, down from the top: days with events have a dot, pick a day to
+  see them. Events come from GNOME Calendar's accounts (Online Accounts: Google, Nextcloud);
+  pick one, or Open Calendar, to see it there. Arrows, PgUp/PgDn and Home move about.
+- Super + Space opens the app launcher, up from the bottom: type, arrows, Enter.
+- Super + Escape (or the power button in quick settings) opens the power menu, in from the
+  right: lock, log out, suspend, reboot, shut down. Log out, reboot and shut down want a
+  second click.
+
+A click anywhere else, or Esc, closes a menu; one is open at a time.
 
 It runs as the `nusku-shell` user service (`systemctl --user restart nusku-shell` if it ever
-needs a kick). Scripts can drive it, e.g. `qs -c nusku ipc call panel toggle`.
+needs a kick). Scripts can drive it: `qs -c nusku ipc call panel|calendar|launcher|session
+toggle`.
 
 niri's own default binds, with Nusku's apps and menus added, are in
 `config/niri/binds-niri.kdl`. To use them instead, change `include "binds-nusku.kdl"` to

@@ -7,12 +7,12 @@
 binds {
     // --- Apps ----------------------------------------------------------------------------
     Mod+Return hotkey-overlay-title="Open terminal" { spawn "kitty"; }
-    Mod+Space hotkey-overlay-title="App launcher" { spawn "rofi" "-show" "drun"; }
+    Mod+Space hotkey-overlay-title="App launcher" { spawn "qs" "-c" "nusku" "ipc" "call" "launcher" "toggle"; }
     Mod+E hotkey-overlay-title="File manager" { spawn "thunar"; }
     Mod+B hotkey-overlay-title="Web browser" { spawn "nusku-browser"; }
     Mod+V hotkey-overlay-title="Clipboard history" { spawn "nusku-menu-clipboard"; }
     Mod+W hotkey-overlay-title="Change wallpaper" { spawn "nusku-menu-wallpaper"; }
-    Mod+Escape hotkey-overlay-title="Power menu" { spawn "nusku-menu-power"; }
+    Mod+Escape hotkey-overlay-title="Power menu" { spawn "qs" "-c" "nusku" "ipc" "call" "session" "toggle"; }
     Mod+N hotkey-overlay-title="Quick settings" { spawn "qs" "-c" "nusku" "ipc" "call" "panel" "toggle"; }
     Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "nusku-menu-keybinds"; }
     Mod+Shift+Slash hotkey-overlay-title="Show keybinds (niri)" { show-hotkey-overlay; }

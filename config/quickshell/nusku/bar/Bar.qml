@@ -43,6 +43,7 @@ PanelWindow {
     Clock {
         id: clock
         anchors.centerIn: parent
+        screen: bar.screen
     }
 
     RowLayout {

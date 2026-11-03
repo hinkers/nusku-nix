@@ -1,6 +1,6 @@
 # The bar and panels: the Nusku shell (Quickshell, config/quickshell/nusku: the bar, the quick
 # settings panel and the notification pop-ups; it is also the notification server), the
-# quick-settings scripts and rofi pickers it calls, and the clock's drop-down calendar. The
+# quick-settings scripts and rofi pickers it calls, and the calendar menu's event helper. The
 # shell is the nusku-shell user service, started with the session.
 { config, lib, pkgs, ... }:
 let
@@ -23,35 +23,31 @@ let
     name = "nusku-menu-bluetooth";
     deps = with pkgs; [ coreutils gnused gnugrep gawk bluez util-linux rofi libnotify blueman ];
   };
-  # Python + GTK4 with the GI typelibs it imports (Gtk, Gdk, Gtk4LayerShell, EDataServer, ECal,
-  # ICalGLib) on GI_TYPELIB_PATH via wrapGAppsHook4. The script preloads gtk4-layer-shell
-  # (it must load before libwayland-client) from NUSKU_LAYER_SHELL.
+  # The calendar menu's events (scripts/nusku-calendar-events): Python + PyGObject with the GI
+  # typelibs it imports (EDataServer, ECal, ICalGLib) on GI_TYPELIB_PATH, no GUI.
   calendarPython = pkgs.python3.withPackages (p: [ p.pygobject3 ]);
-  layerShellLib = "${pkgs.gtk4-layer-shell}/lib/libgtk4-layer-shell.so";
-  calendarTypelibs = with pkgs; [ gtk4-layer-shell evolution-data-server libical ];
-  nusku-calendar = pkgs.stdenv.mkDerivation {
-    pname = "nusku-calendar";
+  calendarTypelibs = with pkgs; [ glib evolution-data-server libical ];
+  nusku-calendar-events = pkgs.stdenv.mkDerivation {
+    pname = "nusku-calendar-events";
     version = "1";
-    src = ../../scripts/nusku-calendar;
+    src = ../../scripts/nusku-calendar-events;
     dontUnpack = true;
-    nativeBuildInputs = with pkgs; [ wrapGAppsHook4 gobject-introspection ];
-    buildInputs = with pkgs; [ calendarPython gtk4 gtk4-layer-shell evolution-data-server libical ];
+    nativeBuildInputs = with pkgs; [ wrapGAppsNoGuiHook gobject-introspection ];
+    buildInputs = [ calendarPython ] ++ calendarTypelibs;
     installPhase = ''
       runHook preInstall
-      install -Dm755 $src $out/bin/nusku-calendar
-      substituteInPlace $out/bin/nusku-calendar \
+      install -Dm755 $src $out/bin/nusku-calendar-events
+      substituteInPlace $out/bin/nusku-calendar-events \
         --replace-fail "#!/usr/bin/env python3" "#!${calendarPython}/bin/python3"
       runHook postInstall
     '';
-    # The hook only collects typelibs it finds in the inputs' dev outputs (gtk4's propagated
-    # deps), so the layer-shell, EDS and libical ones are added explicitly.
+    # The hook only collects typelibs from the inputs' dev outputs, so they are added here.
     preFixup = ''
       gappsWrapperArgs+=(
-        --set NUSKU_LAYER_SHELL "${layerShellLib}"
         --prefix GI_TYPELIB_PATH : "${lib.makeSearchPath "lib/girepository-1.0" calendarTypelibs}"
       )
     '';
-    meta.mainProgram = "nusku-calendar";
+    meta.mainProgram = "nusku-calendar-events";
   };
 in
 {
@@ -75,7 +71,7 @@ in
       ExecStart = "${pkgs.quickshell}/bin/qs -c nusku";
       Restart = "on-failure";
       RestartSec = 2;
-      # Its buttons run commands by name (nusku-quick, nusku-menu-power, niri, ...).
+      # Its buttons run commands by name (nusku-quick, nusku-calendar-events, niri, ...).
       Environment = [
         "PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/run/wrappers/bin"
       ];
@@ -87,5 +83,5 @@ in
     quickshell # qs: `qs -c nusku ipc call panel toggle` (Super + N), nusku-quick's dnd
     brightnessctl # the panel's brightness slider
     networkmanagerapplet # nm-connection-editor (floated by a niri window rule)
-  ]) ++ [ nusku-quick nusku-menu-wifi nusku-menu-bluetooth nusku-calendar ];
+  ]) ++ [ nusku-quick nusku-menu-wifi nusku-menu-bluetooth nusku-calendar-events ];
 }

@@ -33,21 +33,6 @@ Scope {
         Quickshell.execDetached(cmd);
     }
 
-    // A click anywhere else closes the panel.
-    PanelWindow {
-        visible: PanelState.open
-        anchors { top: true; bottom: true; left: true; right: true }
-        exclusionMode: ExclusionMode.Ignore
-        color: "transparent"
-        WlrLayershell.namespace: "nusku-panel-catcher"
-        WlrLayershell.layer: WlrLayer.Top
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.AllButtons
-            onClicked: PanelState.open = false
-        }
-    }
-
     // The panel grows out of the frame's top-right corner, where the bar meets the right border
     // (widgets/CornerDrawer.qml): it slides down out of the bar as it opens
     // (PanelState.progress) and back up as it closes.
@@ -169,7 +154,7 @@ Scope {
                             tooltip: "Screenshot a region"
                         }
                         Toggle {
-                            icon: "󰐥"; onClicked: root.run(["nusku-menu-power"])
+                            icon: "󰐥"; onClicked: Menus.session.toggleOn(PanelState.screen)
                             tooltip: "Power menu: lock, log out, suspend, reboot, shut down"
                         }
                     }

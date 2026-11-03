@@ -18,7 +18,7 @@ let
     "xgpsspeed" "xfce4-about" "rofi" "rofi-theme-selector" "blueman-adapters"
     "thunar-volman-settings" "qt5ct" "qt6ct" "kvantummanager"
   ];
-  menus = [ "nusku-menu-keybinds" "nusku-menu-clipboard" "nusku-menu-power" "nusku-browser" ];
+  menus = [ "nusku-menu-keybinds" "nusku-menu-clipboard" "nusku-browser" ];
 in
 {
   # --- rofi ----------------------------------------------------------------------------------
@@ -39,21 +39,19 @@ in
   "menus: runtime tools on their PATH" =
     builtins.all (p: has p (scriptText "nusku-menu-keybinds")) [ "rofi" "libnotify" "niri" ]
     && builtins.all (p: has p (scriptText "nusku-menu-clipboard")) [ "rofi" "cliphist" "wl-clipboard" ]
-    && builtins.all (p: has p (scriptText "nusku-menu-power")) [ "rofi" "niri" "hyprlock" ]
     && builtins.all (p: has p (scriptText "nusku-browser")) [ "xdg-utils" "gtk+3" "libnotify" ];
   "menus: niri msg is the session's niri" =
     has (builtins.unsafeDiscardStringContext "${full.programs.niri.package}/bin")
-      (scriptText "nusku-menu-power");
+      (scriptText "nusku-menu-keybinds");
   "menus: rofi theme nusku in every menu" =
     builtins.all (n: has "-theme nusku" (read (../../scripts + "/${n}")))
-      [ "nusku-menu-keybinds" "nusku-menu-clipboard" "nusku-menu-power" ];
+      [ "nusku-menu-keybinds" "nusku-menu-clipboard" ];
   "menus: keybind menu reads niri's config.kdl and follows its includes" =
     let k = read ../../scripts/nusku-menu-keybinds; in
     has "niri/config.kdl" k && has "include" k && has "niri msg action" k;
-  "menus: both bind layouts and the shell's power button call them by name" =
+  "menus: both bind layouts call them by name" =
     builtins.all (f: let k = read (../../config/niri + "/${f}"); in
-      builtins.all (n: has ''spawn "${n}"'' k) menus) [ "binds-niri.kdl" "binds-nusku.kdl" ]
-    && has ''root.run(["nusku-menu-power"])'' (read ../../config/quickshell/nusku/panel/QuickSettings.qml);
+      builtins.all (n: has ''spawn "${n}"'' k) menus) [ "binds-niri.kdl" "binds-nusku.kdl" ];
 
   # --- launcher clean-up ---------------------------------------------------------------------
   "launcher: nusku-arch's hidden entries are NoDisplay overrides" =

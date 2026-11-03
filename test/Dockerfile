@@ -1,5 +1,5 @@
 # Image for test/run-unit.sh (tag nusku-nix-test): bats, shellcheck and jq for the nusku-* scripts
-# and the installer, python3 to byte-compile nusku-calendar, git for the exec-bit check and the
+# and the installer, python3 to byte-compile nusku-calendar-events, git for the exec-bit check and the
 # installer's commits, neovim to run the Neovim Lua helpers under `nvim -l` (nvim-*.bats).
 # The installer's menus are plain bash (no gum); lspci, nix and sudo are stubbed by the tests.
 # A UTF-8 locale, as on a real terminal: the menus draw ★ ❯ ─ and read typed keys as characters.

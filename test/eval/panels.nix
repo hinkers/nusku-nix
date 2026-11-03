@@ -1,5 +1,6 @@
 # Named eval assertions (flake check `eval-panels`): the Nusku shell (Quickshell: bar, quick
-# settings, notifications), the quick-settings scripts and the drop-down calendar.
+# settings, notifications, calendar, launcher, power menu), the quick-settings scripts and the
+# calendar's event helper.
 { hosts, lib, pkgs, ... }:
 let
   full = hosts.vm-full.config;
@@ -13,8 +14,7 @@ let
   shell = hm.systemd.user.services.nusku-shell;
   qml = f: builtins.readFile (../../config/quickshell/nusku + "/${f}");
   qmlFiles = map toString (lib.filesystem.listFilesRecursive ../../config/quickshell/nusku);
-  calendar = pkgByName "nusku-calendar";
-  layerShell = pkgs.gtk4-layer-shell; # same nixpkgs input as the hosts
+  calendar = pkgByName "nusku-calendar-events";
 in
 {
   # --- The Nusku shell (Quickshell) -------------------------------------------------------
@@ -37,8 +37,21 @@ in
       [ "binds-niri.kdl" "binds-nusku.kdl" ]
     && has "PanelState.toggleOn(pill.screen)" (qml "bar/QuickPill.qml")
     && builtins.all (f: !(has ".local/bin" (builtins.readFile f))) qmlFiles
-    && has ''"nusku-calendar"'' (qml "bar/Clock.qml")
-    && has ''"nusku-menu-wifi"'' (qml "panel/QuickSettings.qml") && has ''"nusku-menu-power"'' (qml "panel/QuickSettings.qml");
+    && has "Menus.calendar.toggleOn(root.screen)" (qml "bar/Clock.qml")
+    && has ''"nusku-menu-wifi"'' (qml "panel/QuickSettings.qml")
+    && has "Menus.session.toggleOn" (qml "panel/QuickSettings.qml");
+  "shell: launcher (Super + Space / Super + D) and power menu (Super + Escape / Super + X) are its own" =
+    let nusku = builtins.readFile ../../config/niri/binds-nusku.kdl; niri = builtins.readFile ../../config/niri/binds-niri.kdl; ipc = n: ''"qs" "-c" "nusku" "ipc" "call" "${n}" "toggle"''; in
+    has ("Mod+Space hotkey-overlay-title=\"App launcher\" { spawn " + ipc "launcher") nusku
+    && has ("Mod+Escape hotkey-overlay-title=\"Power menu\" { spawn " + ipc "session") nusku
+    && has ("Mod+D hotkey-overlay-title=\"Run an Application\" { spawn " + ipc "launcher") niri
+    && has ("Mod+X hotkey-overlay-title=\"Power menu\" { spawn " + ipc "session") niri
+    && !(has "drun" nusku) && !(has "drun" niri) && !(has "nusku-menu-power" (nusku + niri));
+  "shell: every menu grows out of the frame (drawers) and one is open at a time" =
+    builtins.all (f: has "Drawer {" (qml "menus/${f}")) [ "Calendar.qml" "Launcher.qml" "Session.qml" ]
+    && has "edge: \"top\"" (qml "menus/Calendar.qml") && has "edge: \"bottom\"" (qml "menus/Launcher.qml")
+    && has "edge: \"right\"" (qml "menus/Session.qml")
+    && has "function closeAll" (qml "services/Menus.qml");
   "shell: it is the notification server, with Do Not Disturb over IPC" =
     has "NotificationServer" (qml "services/Notifs.qml")
     && has "function toggleDnd" (qml "services/Notifs.qml")
@@ -47,7 +60,7 @@ in
   # --- scripts -------------------------------------------------------------------------------
   "scripts: quick settings and pickers installed" =
     builtins.all (n: pkgByName n != null)
-      [ "nusku-quick" "nusku-menu-wifi" "nusku-menu-bluetooth" "nusku-calendar" ];
+      [ "nusku-quick" "nusku-menu-wifi" "nusku-menu-bluetooth" "nusku-calendar-events" ];
   "scripts: runtime tools on their PATH" =
     let
       q = scriptText "nusku-quick";
@@ -62,23 +75,19 @@ in
   "nm-connection-editor installed" = builtins.elem "network-manager-applet" pkgNames;
 
   # --- calendar ------------------------------------------------------------------------------
-  "calendar: wrapper preloads gtk4-layer-shell from the store" =
-    calendar != null
-    && builtins.any (p: (p.pname or "") == "gtk4-layer-shell") calendar.buildInputs
-    && has (builtins.unsafeDiscardStringContext "${layerShell}/lib/libgtk4-layer-shell.so") calendar.preFixup
-    # typelibs the hook misses (it sees only the dev outputs)
-    && builtins.all (p: has (builtins.unsafeDiscardStringContext "${p}/lib/girepository-1.0") calendar.preFixup)
-      [ pkgs.gtk4-layer-shell pkgs.evolution-data-server pkgs.libical ];
-  "calendar: python with pygobject; GI typelibs from gtk4, layer shell, EDS, libical" =
+  "calendar: the event helper has pygobject and the EDS, ECal and libical typelibs (no GUI)" =
     let names = map (p: p.pname or p.name or "") calendar.buildInputs; in
-    builtins.all (n: builtins.elem n names)
-      [ "gtk4" "gtk4-layer-shell" "evolution-data-server" "libical" ]
-    && builtins.any (p: builtins.any (m: has "pygobject" (m.name or "")) (p.paths or [ ])) calendar.buildInputs;
+    calendar != null
+    && builtins.all (n: builtins.elem n names) [ "evolution-data-server" "libical" ]
+    && !(builtins.elem "gtk4" names) && !(builtins.elem "gtk4-layer-shell" names)
+    && builtins.any (p: builtins.any (m: has "pygobject" (m.name or "")) (p.paths or [ ])) calendar.buildInputs
+    && builtins.all (p: has (builtins.unsafeDiscardStringContext "${p}/lib/girepository-1.0") calendar.preFixup)
+      [ pkgs.evolution-data-server pkgs.libical ];
   "calendar: evolution-data-server and online accounts on the host" =
     full.services.gnome.evolution-data-server.enable
     && full.services.gnome.gnome-online-accounts.enable;
 
-  # The panel's buttons run commands by name (nusku-menu-power, niri, ...); the shell is a
+  # The panel's buttons run commands by name (nusku-quick, niri, ...); the shell is a
   # systemd user unit, so it gets the user's profile on PATH itself rather than relying on what
   # niri-session imports into the user manager.
   "shell: the user's profile is on the unit's PATH" =

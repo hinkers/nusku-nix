@@ -10,6 +10,7 @@ Rectangle {
     property bool active: false
     property real iconSize: Theme.fontSize + 4
     property string tooltip: ""
+    readonly property bool hovered: mouse.containsMouse
     signal clicked()
     signal rightClicked()
 
