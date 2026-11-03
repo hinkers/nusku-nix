@@ -68,9 +68,6 @@ let
     wine = [ wineWow64Packages.stable winetricks ];
 
     remmina = [ remmina ];
-    # No firewall opening (nusku-arch never opened 5900, and wayvnc has no authentication
-    # unless configured): reach it over an SSH tunnel, or open the port yourself.
-    wayvnc = [ wayvnc ];
     gparted = [ gparted ];
   };
 
@@ -96,8 +93,8 @@ let
       users.users.${cfg.user}.extraGroups = [ "gamemode" ];
     };
 
-    # Starts with the Hyprland session (nusku/autostart.lua, modules/home/hyprland.nix: nothing
-    # reaches the unit's graphical-session.target); Moonlight finds it over mDNS (Avahi). Ports are
+    # Starts with the niri session (its user unit is WantedBy graphical-session.target, which
+    # niri-session reaches); Moonlight finds it over mDNS (Avahi). Ports are
     # nusku-arch's UFW rules: the streaming ports only, so the settings page (47990) stays
     # reachable from this PC alone (openFirewall would open it too).
     sunshine = {
@@ -109,6 +106,15 @@ let
       services.avahi.enable = true;
       networking.firewall.allowedTCPPorts = [ 47984 47989 48010 ];
       networking.firewall.allowedUDPPorts = [ 47998 47999 48000 48002 48010 ];
+    };
+
+    # Shares the screen on port 5900. The user service, its config and its keys are in
+    # modules/home/wayvnc.nix; it asks for this PC's user name and password through PAM, and
+    # always encrypts, so the port is open to the network.
+    wayvnc = {
+      environment.systemPackages = [ pkgs.wayvnc ];
+      networking.firewall.allowedTCPPorts = [ 5900 ];
+      security.pam.services.wayvnc = { };
     };
 
     # Moonlight looks for Sunshine hosts with its own mDNS queries; let the replies in.

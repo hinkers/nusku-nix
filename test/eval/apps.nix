@@ -16,7 +16,7 @@ let
   tcp = c: c.networking.firewall.allowedTCPPorts;
   udp = c: c.networking.firewall.allowedUDPPorts;
   mime = c: c.xdg.mime.defaultApplications;
-  autostart = c: (hmOf c).xdg.configFile."nusku/autostart.lua".text or "";
+  autostart = c: (hmOf c).xdg.configFile."nusku/apps.kdl".text or "";
 
   ids = map (a: a.id) catalogue.apps;
   starred = map (a: a.id) (builtins.filter (a: a.star or false) catalogue.apps);
@@ -101,19 +101,30 @@ in
     && !sunshine.services.avahi.settings.publish."disable-user-service-publishing"
     && hasAll [ 47984 47989 48010 ] (tcp sunshine) && !(builtins.elem 47990 (tcp sunshine))
     && hasAll [ 47998 47999 48000 48002 48010 5353 ] (udp sunshine);
-  # Nothing starts graphical-session.target (Hyprland without UWSM), so the unit's WantedBy
-  # never fires: Hyprland starts it from the per-pick nusku/autostart.lua.
-  "sunshine: started with the Hyprland session (nusku/autostart.lua)" =
-    lib.hasInfix ''hl.exec_cmd("systemctl --user start sunshine")'' (autostart sunshine)
-    && lib.hasInfix "hyprland.start" (autostart sunshine);
-  "sunshine with obsidian: both autostart entries kept" =
-    let c = pick [ "sunshine" "obsidian" ]; in
-    lib.hasInfix "start sunshine" (autostart c) && lib.hasInfix "nusku-obsidian-theme" (autostart c);
-  "sunshine not picked: no sunshine autostart" =
-    builtins.all (c: !(lib.hasInfix "sunshine" (autostart c))) [ none full min ];
+  # niri-session reaches graphical-session.target, so the unit's WantedBy starts it: no
+  # startup command of its own.
+  "sunshine: started with the session (user unit WantedBy graphical-session.target)" =
+    builtins.elem "graphical-session.target" sunshine.systemd.user.services.sunshine.wantedBy
+    && !(lib.hasInfix "sunshine" (autostart sunshine));
+  "obsidian and yazi: their apps.kdl blocks are kept together" =
+    let c = pick [ "yazi" "obsidian" ]; in
+    lib.hasInfix "kitty\" \"-e\" \"yazi" (autostart c) && lib.hasInfix "nusku-obsidian-theme" (autostart c);
+  "yazi not picked: no yazi bind" =
+    builtins.all (c: !(lib.hasInfix "yazi" (autostart c))) [ none min ];
   "moonlight: mDNS replies allowed in" = builtins.elem 5353 (udp (pick [ "moonlight" ]));
-  "wayvnc: installed, VNC port stays closed" =
-    let c = pick [ "wayvnc" ]; in builtins.elem "wayvnc" (sysNames c) && !(builtins.elem 5900 (tcp c));
+  "wayvnc: installed, VNC port open, PAM service" =
+    let c = pick [ "wayvnc" ]; in builtins.elem "wayvnc" (sysNames c) && builtins.elem 5900 (tcp c)
+    && c.security.pam.services ? wayvnc
+    && !(builtins.elem 5900 (tcp min)) && !(min.security.pam.services ? wayvnc);
+  "wayvnc: a user service started with the session, on every address, PAM login, encrypted" =
+    let h = hmOf (pick [ "wayvnc" ]); w = h.services.wayvnc; in
+    w.enable && w.autoStart && w.settings.address == "0.0.0.0" && w.settings.port == 5900
+    && w.settings.enable_auth && w.settings.enable_pam
+    && lib.hasSuffix "/nusku/wayvnc/tls_cert.pem" w.settings.certificate_file
+    && lib.hasSuffix "/nusku/wayvnc/rsa_key.pem" w.settings.rsa_private_key_file
+    && w.settings.xkb_layout == "us"
+    && lib.hasInfix "nusku-wayvnc-keys" h.systemd.user.services.wayvnc.Service.ExecStartPre
+    && !(hmOf min).services.wayvnc.enable;
   "steam: programs.steam, gamescope, 32-bit audio" =
     let c = pick [ "steam" ]; in c.programs.steam.enable && c.programs.gamescope.enable
     && c.services.pipewire.alsa.support32Bit && !min.services.pipewire.alsa.support32Bit;
