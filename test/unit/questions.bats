@@ -174,7 +174,7 @@ BS5='\x7f\x7f\x7f\x7f\x7f'
         printf "\e[B\e[B\e[B\e[B\e[B\e[B \e[H  \e[F\n" >"$NUSKU_TUI_IN"
         answers_set APPS "vlc neovim"
         apps_ask >/dev/null 2>&1; answers_get APPS'
-    [ "$output" = "vlc steam lutris heroic parsec sunshine moonlight gamemode mangohud protonup wine" ]
+    [ "$output" = "vlc steam lutris heroic parsec sunshine moonlight gamemode mangohud protonup wine osrs" ]
     grep -qF 'Gaming' "$NUSKU_TUI_OUT"
     grep -qF '★ marks the usual picks' "$NUSKU_TUI_OUT"
 }

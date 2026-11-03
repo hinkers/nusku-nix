@@ -19,7 +19,7 @@
     "photocraft", "vectorcraft", "lightcraft", "pdfcraft", "wordcraft", "soundcraft",
     "deckcraft", "cadcraft", "gridcraft",
     "steam", "lutris", "heroic", "parsec", "sunshine", "moonlight", "gamemode", "mangohud",
-    "protonup", "wine",
+    "protonup", "wine", "osrs",
     "yazi", "snapper", "remmina", "wayvnc", "gparted", "pokemon"
   ],
   "langs": [ "python", "php", "gdscript", "js", "rust", "go", "cpp", "csharp", "java", "lua" ],

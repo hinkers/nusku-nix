@@ -69,6 +69,7 @@
     { id = "mangohud"; group = "gaming"; label = "MangoHud"; }
     { id = "protonup"; group = "gaming"; label = "ProtonUp-Qt"; }
     { id = "wine"; group = "gaming"; label = "Wine"; }
+    { id = "osrs"; group = "gaming"; label = "Old School RuneScape (Bolt + RuneLite)"; }
 
     { id = "yazi"; group = "system"; label = "Yazi"; }
     { id = "snapper"; group = "system"; label = "Snapper"; btrfs = true; }

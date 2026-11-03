@@ -850,7 +850,7 @@ $appCommands = [ordered]@{
     'obs' = 'obs'; 'audacity' = 'audacity'; 'gimp' = 'gimp'; 'krita' = 'krita'; 'inkscape' = 'inkscape'; 'kdenlive' = 'kdenlive'
     'blender' = 'blender'; 'steam' = 'steam'; 'lutris' = 'lutris'; 'heroic' = 'heroic'; 'parsec' = 'parsecd'
     'sunshine' = 'sunshine'; 'moonlight' = 'moonlight'; 'gamemode' = 'gamemoderun'; 'mangohud' = 'mangohud'
-    'protonup' = 'protonup-qt'; 'wine' = 'wine'; 'yazi' = 'yazi'; 'remmina' = 'remmina'; 'wayvnc' = 'wayvnc'
+    'protonup' = 'protonup-qt'; 'wine' = 'wine'; 'osrs' = 'bolt-launcher'; 'yazi' = 'yazi'; 'remmina' = 'remmina'; 'wayvnc' = 'wayvnc'
     'gparted' = 'gparted'; 'pokemon' = 'krabby'
 }
 $cmds = @($appCommands.Keys | Where-Object { Test-App $_ } | ForEach-Object { $appCommands[$_] })
