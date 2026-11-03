@@ -35,7 +35,7 @@ in
   "shell: Super + N and the bar pill open the panel; scripts called by name, no ~/.local/bin" =
     builtins.all (f: has ''"qs" "-c" "nusku" "ipc" "call" "panel" "toggle"'' (builtins.readFile (../../config/niri + "/${f}")))
       [ "binds-niri.kdl" "binds-nusku.kdl" ]
-    && has "PanelState.toggle()" (qml "bar/QuickPill.qml")
+    && has "PanelState.toggleOn(pill.screen)" (qml "bar/QuickPill.qml")
     && builtins.all (f: !(has ".local/bin" (builtins.readFile f))) qmlFiles
     && has ''"nusku-calendar"'' (qml "bar/Clock.qml")
     && has ''"nusku-menu-wifi"'' (qml "panel/QuickSettings.qml") && has ''"nusku-menu-power"'' (qml "panel/QuickSettings.qml");

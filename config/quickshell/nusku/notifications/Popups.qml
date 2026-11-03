@@ -1,5 +1,5 @@
 // New notifications, stacked in the top right corner under the bar (newest on top), while the
-// quick settings panel is closed (its list shows them anyway).
+// quick settings panel is all the way in (its list shows them anyway).
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -9,7 +9,7 @@ import qs.services
 
 PanelWindow {
     id: root
-    visible: Notifs.popups.length > 0 && !PanelState.open
+    visible: Notifs.popups.length > 0 && PanelState.progress === 0
     anchors {
         top: true
         right: true

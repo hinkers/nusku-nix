@@ -8,17 +8,20 @@ import qs.services
 import qs.widgets
 
 Rectangle {
+    id: pill
+    required property ShellScreen screen
+    readonly property bool panelHere: PanelState.open && PanelState.screen === screen
     implicitHeight: Theme.barHeight - 8
     implicitWidth: row.implicitWidth + 16
     radius: Theme.radius
-    color: PanelState.open ? Colors.surface1 : mouse.containsMouse ? Colors.surface1 : Colors.surface0
+    color: panelHere || mouse.containsMouse ? Colors.surface1 : Colors.surface0
 
     MouseArea {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: PanelState.toggle()
+        onClicked: PanelState.toggleOn(pill.screen)
     }
 
     RowLayout {
@@ -36,7 +39,7 @@ Rectangle {
                 anchors.margins: -4
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
-                onClicked: e => e.button === Qt.RightButton && g.onRight ? g.onRight() : PanelState.toggle()
+                onClicked: e => e.button === Qt.RightButton && g.onRight ? g.onRight() : PanelState.toggleOn(pill.screen)
             }
         }
 

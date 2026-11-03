@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import qs
+import qs.services
 import qs.widgets
 
 PanelWindow {
@@ -21,12 +22,15 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.alpha(Colors.base, 0.92)
+        color: Theme.barColor
+        // The bottom border; while the quick settings panel is out on this screen it stops where
+        // the panel hangs off the bar, and the panel's own outline carries it on.
         Rectangle {
             anchors.bottom: parent.bottom
-            width: parent.width
             height: 2
             color: Colors.surface0
+            width: PanelState.progress > 0 && PanelState.screen === bar.screen
+                ? parent.width - Theme.panelWidth - Theme.radiusLarge : parent.width
         }
     }
 
@@ -56,6 +60,6 @@ PanelWindow {
         spacing: 4
         Tray { bar: bar }
         Battery {}
-        QuickPill {}
+        QuickPill { screen: bar.screen }
     }
 }

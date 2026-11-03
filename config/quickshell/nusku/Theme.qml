@@ -19,6 +19,9 @@ Singleton {
 
     readonly property int animMs: 150
 
+    // The bar's background; the quick settings panel uses the same, so they read as one piece.
+    readonly property color barColor: alpha(Colors.base, 0.92)
+
     // The colour with an alpha (0-1).
     function alpha(c, a) {
         return Qt.rgba(c.r, c.g, c.b, a);
