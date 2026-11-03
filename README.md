@@ -111,7 +111,9 @@ stacked above and below; Super + O shows them all. The keybinds (`config/niri/bi
 - Super + / searches every bind (and runs the one you pick); Super + Shift + / is niri's list
 
 The bar, the quick settings panel and the notifications are Nusku's own shell, built with
-[Quickshell](https://quickshell.org) (`config/quickshell/nusku`, in your accent colour):
+[Quickshell](https://quickshell.org) (`config/quickshell/nusku`, in your accent colour). The
+bar is the top of a slim frame round the screen (windows sit inside it), and the panel and the
+notifications grow out of the frame's top-right corner:
 
 - The bar: workspaces, the window title, the clock (click for the calendar), the tray, the
   battery and one pill for network, Bluetooth and notifications.

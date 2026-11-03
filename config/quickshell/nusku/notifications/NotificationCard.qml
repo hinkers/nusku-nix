@@ -19,8 +19,8 @@ Rectangle {
 
     implicitHeight: content.implicitHeight + 24
     radius: Theme.radiusLarge
-    color: popup ? Colors.base : Colors.surface0
-    border.width: popup || critical ? 2 : 0
+    color: Colors.surface0
+    border.width: critical ? 2 : 0
     border.color: critical ? Colors.red : Colors.accent
 
     Timer {

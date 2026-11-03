@@ -1,42 +1,54 @@
-// New notifications, stacked in the top right corner under the bar (newest on top), while the
-// quick settings panel is all the way in (its list shows them anyway).
+// New notifications grow out of the frame's top-right corner, where the bar meets the right
+// border (widgets/CornerDrawer.qml), newest on top; the drawer grows and shrinks as they come
+// and go. Not while the quick settings panel is out (its list shows them anyway).
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import qs
 import qs.services
+import qs.widgets
 
 PanelWindow {
     id: root
-    visible: Notifs.popups.length > 0 && PanelState.progress === 0
+    readonly property bool wanted: Notifs.popups.length > 0 && PanelState.progress === 0
+    visible: drawer.shown > 0
+    screen: PanelState.screen
     anchors {
         top: true
         right: true
+        bottom: true
     }
-    margins {
-        top: Theme.gap
-        right: Theme.gap
-    }
-    // Below the bar, never pushing windows aside.
-    exclusiveZone: 0
-    implicitWidth: Theme.popupWidth
-    implicitHeight: column.implicitHeight
+    exclusionMode: ExclusionMode.Ignore
+    implicitWidth: drawer.windowWidth
     color: "transparent"
+    mask: Region { item: drawer.area }
     WlrLayershell.namespace: "nusku-notifications"
     WlrLayershell.layer: WlrLayer.Overlay
 
-    ColumnLayout {
-        id: column
-        width: parent.width
-        spacing: Theme.gap
-        Repeater {
-            model: Notifs.popups.slice(0, 5)
-            NotificationCard {
-                required property var modelData
-                Layout.fillWidth: true
-                notification: modelData
-                popup: true
+    CornerDrawer {
+        id: drawer
+        bodyWidth: Theme.popupWidth
+        shown: root.wanted ? column.implicitHeight + 2 * Theme.gap : 0
+        Behavior on shown {
+            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
+
+        // Pinned to the bottom of what is out, so the cards slide down out of the bar.
+        ColumnLayout {
+            id: column
+            x: Theme.gap
+            width: parent.width - 2 * Theme.gap
+            y: drawer.shown - implicitHeight - Theme.gap
+            spacing: Theme.gap
+            Repeater {
+                model: Notifs.popups.slice(0, 5)
+                NotificationCard {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    notification: modelData
+                    popup: true
+                }
             }
         }
     }

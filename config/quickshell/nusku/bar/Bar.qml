@@ -1,5 +1,5 @@
-// The bar along the top of a screen: workspaces and the window title on the left, the clock in
-// the middle, the tray, battery and quick settings pill on the right.
+// The bar along the top of a screen, the frame's top edge: workspaces and the window title on
+// the left, the clock in the middle, the tray, battery and quick settings pill on the right.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -20,18 +20,10 @@ PanelWindow {
     WlrLayershell.namespace: "nusku-bar"
     WlrLayershell.layer: WlrLayer.Top
 
+    // The top of the frame round the screen (frame/Frame.qml draws the rest).
     Rectangle {
         anchors.fill: parent
-        color: Theme.barColor
-        // The bottom border; while the quick settings panel is out on this screen it stops where
-        // the panel hangs off the bar, and the panel's own outline carries it on.
-        Rectangle {
-            anchors.bottom: parent.bottom
-            height: 2
-            color: Colors.surface0
-            width: PanelState.progress > 0 && PanelState.screen === bar.screen
-                ? parent.width - Theme.panelWidth - Theme.radiusLarge : parent.width
-        }
+        color: Theme.shellColor
     }
 
     RowLayout {

@@ -108,14 +108,6 @@ window-rule {
     default-window-height { fixed 520; }
 }
 
-// The bar is slightly see-through: blur what's behind it.
-layer-rule {
-    match namespace="^nusku-bar$"
-    background-effect {
-        blur true
-    }
-}
-
 // --- Includes (order matters: later wins) ---------------------------------------------------
 
 // The keybinds. Two layouts ship with Nusku; include exactly one:

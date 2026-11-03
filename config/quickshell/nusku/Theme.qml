@@ -19,8 +19,13 @@ Singleton {
 
     readonly property int animMs: 150
 
-    // The bar's background; the quick settings panel uses the same, so they read as one piece.
-    readonly property color barColor: alpha(Colors.base, 0.92)
+    // The shell's surface: the bar, the frame round the screen and everything that grows out of
+    // them share it, so they read as one piece.
+    readonly property color shellColor: Colors.mantle
+    // The frame: its width on the left, right and bottom (the bar is the top), and the radius
+    // of its inner corners and of the concave corners where a drawer meets it.
+    readonly property int frame: 8
+    readonly property int frameRadius: 16
 
     // The colour with an alpha (0-1).
     function alpha(c, a) {

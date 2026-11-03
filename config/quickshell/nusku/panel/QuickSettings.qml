@@ -3,7 +3,6 @@
 // outside closes it.
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
@@ -49,93 +48,42 @@ Scope {
         }
     }
 
-    // The panel hangs off the bar's right end, flush with the screen edge, in the bar's colour:
-    // the bar's bottom border runs on as its outline through a concave corner, so the two read
-    // as one piece. Opening slides it down out of the bar (PanelState.progress); closing pulls
-    // it back up.
+    // The panel grows out of the frame's top-right corner, where the bar meets the right border
+    // (widgets/CornerDrawer.qml): it slides down out of the bar as it opens
+    // (PanelState.progress) and back up as it closes.
     PanelWindow {
         id: panel
         screen: PanelState.screen
         visible: PanelState.progress > 0
         anchors { top: true; right: true; bottom: true }
-        // Over the bar: it starts on the bar's bottom border.
+        // Over the frame: it is drawn from the bar's lower edge, against the right border.
         exclusionMode: ExclusionMode.Ignore
-        implicitWidth: Theme.panelWidth + fillet
+        implicitWidth: drawer.windowWidth
         color: "transparent"
         WlrLayershell.namespace: "nusku-panel"
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: PanelState.open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         // Only the panel itself takes clicks; the rest of the strip falls through to the catcher.
-        mask: Region { item: clipper }
-        // Blur behind the panel's own shape (ext-background-effect), not the whole strip.
-        BackgroundEffect.blurRegion: Region {
-            item: clipper
-            bottomLeftRadius: Theme.radiusLarge
-        }
+        mask: Region { item: drawer.area }
 
-        readonly property real fillet: Theme.radiusLarge
-        readonly property real top: Theme.barHeight - 2
-        readonly property real fullHeight: Math.min(height - top - Theme.gap, body.implicitHeight + 32)
-        readonly property real shown: fullHeight * PanelState.progress
+        readonly property real fullHeight: Math.min(height - Theme.barHeight - Theme.frame - Theme.frameRadius, body.implicitHeight + 32)
 
         PwObjectTracker {
             objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
         }
         readonly property var sink: Pipewire.defaultAudioSink
 
-        Shape {
-            id: outline
-            anchors.fill: parent
-            preferredRendererType: Shape.CurveRenderer
-            readonly property real f: panel.fillet
-            readonly property real t: panel.top
-            readonly property real w: panel.width
-            readonly property real b: panel.top + panel.shown
-            readonly property real rf: Math.min(f, panel.shown)
-            readonly property real rb: Math.min(Theme.radiusLarge, panel.shown / 2)
+        CornerDrawer {
+            id: drawer
+            bodyWidth: Theme.panelWidth
+            shown: panel.fullHeight * PanelState.progress
 
-            // The panel, from the bar's border: concave corner, left side, rounded bottom.
-            ShapePath {
-                strokeWidth: -1
-                fillColor: Theme.barColor
-                startX: 0; startY: outline.t
-                PathArc { x: outline.f; y: outline.t + outline.rf; radiusX: outline.f; radiusY: outline.rf; direction: PathArc.Clockwise }
-                PathLine { x: outline.f; y: outline.b - outline.rb }
-                PathArc { x: outline.f + outline.rb; y: outline.b; radiusX: outline.rb; radiusY: outline.rb; direction: PathArc.Counterclockwise }
-                PathLine { x: outline.w - outline.rb; y: outline.b }
-                PathArc { x: outline.w; y: outline.b - outline.rb; radiusX: outline.rb; radiusY: outline.rb; direction: PathArc.Counterclockwise }
-                PathLine { x: outline.w; y: outline.t }
-                PathLine { x: 0; y: outline.t }
-            }
-            // The bar's border carried on round the panel (not along the top, where it joins the
-            // bar, nor up the screen edge).
-            ShapePath {
-                strokeWidth: 2
-                strokeColor: Colors.surface0
-                fillColor: "transparent"
-                startX: 0; startY: outline.t + 1
-                PathArc { x: outline.f + 1; y: outline.t + outline.rf; radiusX: outline.f + 1; radiusY: outline.rf - 1; direction: PathArc.Clockwise }
-                PathLine { x: outline.f + 1; y: outline.b - outline.rb }
-                PathArc { x: outline.f + 1 + outline.rb; y: outline.b - 1; radiusX: outline.rb; radiusY: outline.rb; direction: PathArc.Counterclockwise }
-                PathLine { x: outline.w - outline.rb; y: outline.b - 1 }
-                PathArc { x: outline.w; y: outline.b - outline.rb; radiusX: outline.rb; radiusY: outline.rb; direction: PathArc.Counterclockwise }
-            }
-        }
-
-        // What is out so far; the contents slide down inside it.
-        Item {
-            id: clipper
-            x: panel.fillet
-            y: panel.top
-            width: Theme.panelWidth
-            height: panel.shown
-            clip: true
-
+            // The contents slide down inside what is out so far.
             Item {
                 id: frame
                 width: parent.width
                 height: panel.fullHeight
-                y: panel.shown - panel.fullHeight
+                y: drawer.shown - panel.fullHeight
                 focus: true
                 Keys.onEscapePressed: PanelState.open = false
 
@@ -143,7 +91,7 @@ Scope {
                     id: body
                     anchors.fill: parent
                     anchors.margins: 16
-                    anchors.topMargin: 18
+                    anchors.topMargin: 12
                     spacing: 12
 
                     // --- Wi-Fi and Bluetooth --------------------------------------------------
