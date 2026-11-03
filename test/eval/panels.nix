@@ -1,5 +1,5 @@
-# Named eval assertions (flake check `eval-panels`): Waybar, the swaync quick-settings panel,
-# the quick-settings scripts and the drop-down calendar.
+# Named eval assertions (flake check `eval-panels`): the Nusku shell (Quickshell: bar, quick
+# settings, notifications), the quick-settings scripts and the drop-down calendar.
 { hosts, lib, pkgs, ... }:
 let
   full = hosts.vm-full.config;
@@ -10,57 +10,51 @@ let
   pkgNames = map (p: p.pname or p.name or "") hm.home.packages;
   # writeShellApplication's text attribute (the file it writes): no build, no IFD.
   scriptText = n: (pkgByName n).text;
-  swaync = hm.systemd.user.services.swaync;
+  shell = hm.systemd.user.services.nusku-shell;
+  qml = f: builtins.readFile (../../config/quickshell/nusku + "/${f}");
+  qmlFiles = map toString (lib.filesystem.listFilesRecursive ../../config/quickshell/nusku);
   calendar = pkgByName "nusku-calendar";
   layerShell = pkgs.gtk4-layer-shell; # same nixpkgs input as the hosts
 in
 {
-  # --- Waybar --------------------------------------------------------------------------------
-  "waybar: nusku-arch config and style linked" =
-    (cfgFile "waybar/config.jsonc").source == ../../config/waybar/config.jsonc
-    && (cfgFile "waybar/style.css").source == ../../config/waybar/style.css;
-  "waybar: package installed (autostart.lua runs it)" = builtins.elem "waybar" pkgNames;
-  "waybar: own style, not catppuccin's (palette comes from nusku/theme/colors.css)" =
-    !hm.catppuccin.waybar.enable && !hm.programs.waybar.enable
-    && has "../nusku/theme/colors.css" (builtins.readFile ../../config/waybar/style.css);
-  "waybar: scripts called by name, no ~/.local/bin" =
-    let t = builtins.readFile ../../config/waybar/config.jsonc; in
-    !(has ".local/bin" t) && has ''"on-click": "nusku-calendar"'' t
-    && has ''"on-click-right": "nusku-menu-wifi"'' t && has ''"on-click-right": "nusku-menu-bluetooth"'' t;
-  "waybar: one quick-settings pill, no volume module" =
-    let t = builtins.readFile ../../config/waybar/config.jsonc; in
-    has ''"group/quick"'' t && !(has "pulseaudio" t) && !(has "wireplumber" t);
-
-  # --- swaync --------------------------------------------------------------------------------
-  "swaync: HM service, nusku-arch style linked, catppuccin's off" =
-    hm.services.swaync.enable && !hm.catppuccin.swaync.enable
-    && (cfgFile "swaync/style.css").source == ../../config/swaync/style.css;
-  "swaync: config.json is written per machine, not by Home Manager" =
-    !(cfgFile "swaync/config.json").enable;
-  "swaync: unit writes config.json from the template before starting" =
-    let pre = toString swaync.Service.ExecStartPre; in
-    has "/bin/nusku-swaync-config" pre
-    && has "config.template.json" pre
-    && has "${hm.xdg.configHome}/swaync/config.json" pre
-    && lib.hasPrefix "-" pre; # a failure must not stop notifications
-  "swaync: unit restarts when the template changes" =
-    builtins.any (has "config.template.json") (map toString swaync.Unit.X-Restart-Triggers);
-  "swaync: template is nusku-arch's with scripts by name" =
-    let t = builtins.readFile ../../config/swaync/config.template.json; in
-    !(has ".local/bin" t) && has ''"nusku-quick toggle night"'' t && has ''nusku-menu-wifi"'' t
-    && has "show-per-app" t;
+  # --- The Nusku shell (Quickshell) -------------------------------------------------------
+  "shell: every QML file linked to ~/.config/quickshell/nusku, with the generated Colors.qml" =
+    builtins.all (f: hm.xdg.configFile ? "quickshell/nusku/${lib.removePrefix (toString ../../config/quickshell/nusku + "/") f}") qmlFiles
+    && has ''"#89b4fa"'' (cfgFile "quickshell/nusku/Colors.qml").text
+    && has "pragma Singleton" (cfgFile "quickshell/nusku/Colors.qml").text;
+  "shell: user service started with the session, restarted on a change" =
+    has "/bin/qs -c nusku" (toString shell.Service.ExecStart)
+    && builtins.elem "graphical-session.target" shell.Install.WantedBy
+    && builtins.elem "graphical-session.target" shell.Unit.PartOf
+    && shell.Unit.X-Restart-Triggers != [ ];
+  "shell: Waybar and swaync are gone" =
+    !(hm.services.swaync.enable or false) && !hm.programs.waybar.enable
+    && !(builtins.elem "waybar" pkgNames) && !(hm.xdg.configFile ? "waybar/config.jsonc")
+    && !(has "waybar" (builtins.readFile ../../config/niri/config.kdl));
+  "shell: UPower on (the bar's battery)" = full.services.upower.enable;
+  "shell: Super + N and the bar pill open the panel; scripts called by name, no ~/.local/bin" =
+    builtins.all (f: has ''"qs" "-c" "nusku" "ipc" "call" "panel" "toggle"'' (builtins.readFile (../../config/niri + "/${f}")))
+      [ "binds-niri.kdl" "binds-nusku.kdl" ]
+    && has "PanelState.toggle()" (qml "bar/QuickPill.qml")
+    && builtins.all (f: !(has ".local/bin" (builtins.readFile f))) qmlFiles
+    && has ''"nusku-calendar"'' (qml "bar/Clock.qml")
+    && has ''"nusku-menu-wifi"'' (qml "panel/QuickSettings.qml") && has ''"nusku-menu-power"'' (qml "panel/QuickSettings.qml");
+  "shell: it is the notification server, with Do Not Disturb over IPC" =
+    has "NotificationServer" (qml "services/Notifs.qml")
+    && has "function toggleDnd" (qml "services/Notifs.qml")
+    && has "qs -c nusku ipc call notifications" (scriptText "nusku-quick");
 
   # --- scripts -------------------------------------------------------------------------------
   "scripts: quick settings and pickers installed" =
     builtins.all (n: pkgByName n != null)
-      [ "nusku-quick" "nusku-menu-wifi" "nusku-menu-bluetooth" "nusku-calendar" "nusku-swaync-config" ];
+      [ "nusku-quick" "nusku-menu-wifi" "nusku-menu-bluetooth" "nusku-calendar" ];
   "scripts: runtime tools on their PATH" =
     let
       q = scriptText "nusku-quick";
       w = scriptText "nusku-menu-wifi";
       b = scriptText "nusku-menu-bluetooth";
     in
-    builtins.all (p: has p q) [ "hyprsunset" "hypridle" "wireplumber" "networkmanager" "bluez" "power-profiles-daemon" "SwayNotificationCenter" "procps" "util-linux" "libnotify" ]
+    builtins.all (p: has p q) [ "wlsunset" "wireplumber" "networkmanager" "bluez" "power-profiles-daemon" "quickshell" "procps" "util-linux" "libnotify" ]
     && builtins.all (p: has p w) [ "rofi" "networkmanager" "kitty" "libnotify" ]
     && builtins.all (p: has p b) [ "rofi" "bluez" "blueman" "util-linux" ];
   "scripts: own set options kept (no added errexit)" =
@@ -84,9 +78,9 @@ in
     full.services.gnome.evolution-data-server.enable
     && full.services.gnome.gnome-online-accounts.enable;
 
-  # The panel's buttons run commands by name (nusku-menu-power, hyprshot, ...); swaync is a
+  # The panel's buttons run commands by name (nusku-menu-power, niri, ...); the shell is a
   # systemd user unit, so it gets the user's profile on PATH itself rather than relying on what
-  # Hyprland imports into the user manager.
-  "swaync: the user's profile is on the unit's PATH" =
-    has "PATH=/etc/profiles/per-user/nathan/bin:" (toString swaync.Service.Environment);
+  # niri-session imports into the user manager.
+  "shell: the user's profile is on the unit's PATH" =
+    has "PATH=/etc/profiles/per-user/nathan/bin:" (toString shell.Service.Environment);
 }

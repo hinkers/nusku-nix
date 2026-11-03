@@ -1,16 +1,18 @@
-# The bar and panels: nusku-arch's Waybar (one quick-settings pill), the swaync quick-settings
-# panel and pop-ups, the quick-settings scripts and rofi pickers, and the clock's drop-down
-# calendar. autostart.lua starts `waybar` and `systemctl --user start swaync`.
+# The bar and panels: the Nusku shell (Quickshell, config/quickshell/nusku: the bar, the quick
+# settings panel and the notification pop-ups; it is also the notification server), the
+# quick-settings scripts and rofi pickers it calls, and the clock's drop-down calendar. The
+# shell is the nusku-shell user service, started with the session.
 { config, lib, pkgs, ... }:
 let
   scripts = import ../../lib/scripts.nix { inherit pkgs lib; };
+  shellDir = ../../config/quickshell/nusku;
 
   nusku-quick = scripts.mkScript {
     name = "nusku-quick";
     deps = with pkgs; [
       coreutils gnugrep procps util-linux libnotify
-      networkmanager bluez swaynotificationcenter wireplumber power-profiles-daemon
-      hyprsunset hypridle
+      networkmanager bluez quickshell wireplumber power-profiles-daemon
+      wlsunset # systemctl (caffeine: the swayidle unit) comes from the system
     ];
   };
   nusku-menu-wifi = scripts.mkScript {
@@ -21,15 +23,6 @@ let
     name = "nusku-menu-bluetooth";
     deps = with pkgs; [ coreutils gnused gnugrep gawk bluez util-linux rofi libnotify blueman ];
   };
-  nusku-swaync-config = scripts.mkScript {
-    name = "nusku-swaync-config";
-    deps = with pkgs; [ coreutils gnused jq power-profiles-daemon ];
-  };
-
-  # nusku-arch's panel template; nusku-swaync-config fills in this machine's backlight device and
-  # power profiles when swaync starts (Nix can't see the hardware).
-  swayncTemplate = ../../config/swaync/config.template.json;
-
   # Python + GTK4 with the GI typelibs it imports (Gtk, Gdk, Gtk4LayerShell, EDataServer, ECal,
   # ICalGLib) on GI_TYPELIB_PATH via wrapGAppsHook4. The script preloads gtk4-layer-shell
   # (it must load before libwayland-client) from NUSKU_LAYER_SHELL.
@@ -62,33 +55,37 @@ let
   };
 in
 {
-  xdg.configFile = {
-    "waybar/config.jsonc".source = ../../config/waybar/config.jsonc;
-    "waybar/style.css".source = ../../config/waybar/style.css;
-    # config.json is a plain file written by nusku-swaync-config (below), not a store link.
-    "swaync/config.json".enable = false;
+  # The shell's QML, file by file (so Colors.qml, rendered from lib/palette.nix by theme.nix
+  # with the host's accent, can sit next to it).
+  xdg.configFile = lib.listToAttrs (map
+    (path: lib.nameValuePair "quickshell/nusku/${lib.removePrefix (toString shellDir + "/") (toString path)}" { source = path; })
+    (lib.filesystem.listFilesRecursive shellDir)) // {
+    "quickshell/nusku/Colors.qml".text = config.xdg.configFile."nusku/theme/Colors.qml".text;
   };
 
-  services.swaync = {
-    enable = true;
-    style = ../../config/swaync/style.css;
+  systemd.user.services.nusku-shell = {
+    Unit = {
+      Description = "Nusku shell (Quickshell): bar, quick settings, notifications";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+      # A rebuild that changes the shell restarts it (it also reloads edited files by itself).
+      X-Restart-Triggers = [ "${shellDir}" config.xdg.configFile."quickshell/nusku/Colors.qml".text ];
+    };
+    Service = {
+      ExecStart = "${pkgs.quickshell}/bin/qs -c nusku";
+      Restart = "on-failure";
+      RestartSec = 2;
+      # Its buttons run commands by name (nusku-quick, nusku-menu-power, niri, ...).
+      Environment = [
+        "PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/run/wrappers/bin"
+      ];
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
   };
-  systemd.user.services.swaync = {
-    Unit.X-Restart-Triggers = [ "${swayncTemplate}" ];
-    # The panel's buttons run commands by name (nusku-quick, nusku-menu-power, hyprshot, ...).
-    Service.Environment = [
-      "PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/run/wrappers/bin"
-    ];
-    # "-": if the config can't be written, swaync still starts (with the last or default one).
-    Service.ExecStartPre = "-${nusku-swaync-config}/bin/nusku-swaync-config ${swayncTemplate} ${config.xdg.configHome}/swaync/config.json";
-  };
-
-  # nusku-arch's own Waybar and swaync styles (they import ~/.config/nusku/theme/colors.css).
-  catppuccin.waybar.enable = false;
-  catppuccin.swaync.enable = false;
 
   home.packages = (with pkgs; [
-    waybar
-    networkmanagerapplet # nm-connection-editor (floated by rules.lua)
-  ]) ++ [ nusku-quick nusku-menu-wifi nusku-menu-bluetooth nusku-swaync-config nusku-calendar ];
+    quickshell # qs: `qs -c nusku ipc call panel toggle` (Super + N), nusku-quick's dnd
+    brightnessctl # the panel's brightness slider
+    networkmanagerapplet # nm-connection-editor (floated by a niri window rule)
+  ]) ++ [ nusku-quick nusku-menu-wifi nusku-menu-bluetooth nusku-calendar ];
 }
