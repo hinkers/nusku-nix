@@ -511,15 +511,15 @@ evaluator() {
 # leftovers: nusku-arch's files (plain files and folders), next to ones Home Manager already made
 # (links into the Nix store) and files Nusku doesn't manage.
 leftovers() {
-    mkdir -p "$HOME/.config/hypr" "$HOME/.config/kitty" "$HOME/.config/nvim/lua" "$HOME/.config/gtk-3.0"
-    echo 'old' >"$HOME/.config/hypr/hyprland.lua"
+    mkdir -p "$HOME/.config/niri" "$HOME/.config/kitty" "$HOME/.config/nvim/lua" "$HOME/.config/gtk-3.0"
+    echo 'old' >"$HOME/.config/niri/config.kdl"
     echo 'old' >"$HOME/.zshrc"
     ln -s /nix/store/x-home-manager-files/.config/kitty/kitty.conf "$HOME/.config/kitty/kitty.conf"
     ln -s /nix/store/x-home-manager-files/.config/nvim/init.lua "$HOME/.config/nvim/init.lua"
     echo '{}' >"$HOME/.config/nvim/lazyvim.json" # LazyVim writes it into the managed folder
     echo 'file:///home bookmarks' >"$HOME/.config/gtk-3.0/bookmarks"
-    mkdir -p "$HOME/.config/swaync" "$HOME/.icons/catppuccin-mocha-mauve-cursors"
-    echo '{}' >"$HOME/.config/swaync/config.json"
+    mkdir -p "$HOME/.config/hypr" "$HOME/.icons/catppuccin-mocha-mauve-cursors"
+    echo 'old' >"$HOME/.config/hypr/hyprlock.conf"
     echo 'x' >"$HOME/.icons/catppuccin-mocha-mauve-cursors/index.theme"
 }
 
@@ -529,15 +529,15 @@ leftovers() {
     keys '\n'
     run install --host laptop --no-reboot
     [ "$status" -eq 0 ]
-    [[ "$output" == *"~/.zshrc"* && "$output" == *"~/.config/hypr"* && "$output" == *"~/.config/swaync/config.json"* ]]
+    [[ "$output" == *"~/.zshrc"* && "$output" == *"~/.config/niri"* && "$output" == *"~/.config/hypr/hyprlock.conf"* ]]
     [[ "$output" == *"~/.icons/catppuccin-mocha-mauve-cursors"* ]]
     [[ "$output" != *"~/.config/kitty"* && "$output" != *"~/.config/nvim"* && "$output" != *"gtk-3.0"* ]]
     local backup
     backup="$(echo "$HOME"/nusku-backup-*)"
     [ -d "$backup" ]
-    [ "$(cat "$backup/.config/hypr/hyprland.lua")" = old ] && [ "$(cat "$backup/.zshrc")" = old ]
-    [ -f "$backup/.config/swaync/config.json" ] && [ -d "$backup/.icons/catppuccin-mocha-mauve-cursors" ]
-    [ ! -e "$HOME/.config/hypr" ] && [ ! -e "$HOME/.zshrc" ]
+    [ "$(cat "$backup/.config/niri/config.kdl")" = old ] && [ "$(cat "$backup/.zshrc")" = old ]
+    [ -f "$backup/.config/hypr/hyprlock.conf" ] && [ -d "$backup/.icons/catppuccin-mocha-mauve-cursors" ]
+    [ ! -e "$HOME/.config/niri" ] && [ ! -e "$HOME/.zshrc" ]
     [ -L "$HOME/.config/kitty/kitty.conf" ] && [ -f "$HOME/.config/nvim/lazyvim.json" ] && [ -f "$HOME/.config/gtk-3.0/bookmarks" ]
     grep -qF "nixos-rebuild switch --flake $REPO#laptop" "$CALLS"
     [[ "$output" == *"Files that were in Home Manager's way are in $backup"* ]]
@@ -550,7 +550,7 @@ leftovers() {
     run install --host laptop --no-reboot
     [ "$status" -eq 1 ]
     [[ "$output" == *"Stopped before the build; nothing was moved"* ]]
-    [ -f "$HOME/.zshrc" ] && [ -f "$HOME/.config/hypr/hyprland.lua" ]
+    [ -f "$HOME/.zshrc" ] && [ -f "$HOME/.config/niri/config.kdl" ]
     ! ls -d "$HOME"/nusku-backup-* 2>/dev/null || false
     ! grep -q nixos-rebuild "$CALLS" || false
 }
@@ -568,10 +568,10 @@ leftovers() {
 
 @test "home check: a home Home Manager already manages passes without a question" {
     seed_host laptop
-    mkdir -p "$HOME/.config/hypr"
+    mkdir -p "$HOME/.config/niri"
     ln -s /nix/store/x-home-manager-files/.zshrc "$HOME/.zshrc"
-    ln -s /nix/store/x-home-manager-files/.config/hypr/hyprland.lua "$HOME/.config/hypr/hyprland.lua"
-    echo 'mine' >"$HOME/.config/hypr/notes.txt"
+    ln -s /nix/store/x-home-manager-files/.config/niri/config.kdl "$HOME/.config/niri/config.kdl"
+    echo 'mine' >"$HOME/.config/niri/notes.txt"
     run install --host laptop --no-reboot
     [ "$status" -eq 0 ]
     [ ! -s "$NUSKU_TUI_OUT" ]

@@ -18,18 +18,16 @@
 .config/bat/themes/Catppuccin Mocha.tmTheme
 .config/eza/theme.yml
 
-# Hyprland and the bar, notifications and menus
-.config/hypr/
-.config/waybar/config.jsonc
-.config/waybar/style.css
-.config/swaync/config.json
-.config/swaync/style.css
+# niri and the bar, notifications, lock screen and menus
+.config/niri/
+.config/hypr/hyprlock.conf
+.config/quickshell/nusku/
 .config/rofi/catppuccin-mocha.rasi
 .config/rofi/config.rasi
 .config/rofi/nusku.rasi
-.config/nusku/gpu.lua
-.config/nusku/input.lua
-.config/nusku/autostart.lua
+.config/nusku/gpu.kdl
+.config/nusku/input.kdl
+.config/nusku/apps.kdl
 .config/nusku/nvim-languages.lua
 .config/nusku/nvim-nix.lua
 .config/nusku/theme/
@@ -42,6 +40,7 @@
 .config/yazi/yazi.toml
 .config/yazi/theme.toml
 .config/yazi/Catppuccin-mocha.tmTheme
+.config/wayvnc/config
 .config/mozilla/firefox/profiles.ini
 .config/mozilla/firefox/default/
 .mozilla/native-messaging-hosts

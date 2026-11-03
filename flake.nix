@@ -1,5 +1,5 @@
 {
-  description = "Nusku: a Catppuccin Mocha Hyprland desktop on NixOS";
+  description = "Nusku: a Catppuccin Mocha niri desktop on NixOS";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

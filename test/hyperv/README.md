@@ -158,9 +158,9 @@ What a run does:
    `NUSKU_FLAKE_ATTR=nusku-nix-test-hyperv-test`. install.sh copies the VM's own
    `/etc/nixos/hardware-configuration.nix` into the host, commits it and builds. The install
    runs detached in the guest and its output is streamed to your terminal.
-4. It reboots. SDDM logs `tester` straight into Hyprland.
+4. It reboots. SDDM logs `tester` straight into niri.
 5. It runs the checks and prints a PASS/WARN/FAIL table.
-6. It takes screenshots: desktop, fastfetch (kitty), rofi, keybinds, quick settings, calendar,
+6. It takes screenshots: desktop, fastfetch (kitty), rofi, keybinds, a notification, quick settings, calendar,
    GTK (Thunar), plus Firefox, Obsidian and Neovim when they are picked.
 7. It runs `nusku-rebuild` again (it must change nothing) and checks that a rollback generation
    exists.
@@ -184,7 +184,7 @@ builds `NAME-hyperv-test`, a separate flake output: the same host plus
 - sshd with keys only, reading `~/.ssh/authorized_keys`;
 - NOPASSWD sudo for the host's user;
 - the Hyper-V guest services;
-- SDDM autologin into Hyprland;
+- SDDM autologin into niri;
 - `NUSKU_FLAKE_ATTR`, so `nusku-rebuild` in the VM builds the variant again.
 
 These variants exist only for hosts whose `settings.json` has `"gpu": "vm"`, and guest.nix
@@ -226,12 +226,14 @@ screenshots, or the VM itself with `-KeepRunning`.
   Check it on a real machine.
 - **An unmanaged Firefox `profiles.ini`:** create `~/.config/mozilla/firefox/profiles.ini` by
   hand, then run `nusku-rebuild`. The rebuild reports the collision the README describes.
-- **wayvnc (`-Full`):** it listens on localhost only (`ss -tlnp | grep 5900`).
+- **wayvnc (`-Full`):** it runs and listens on every address (`systemctl --user status wayvnc`,
+  `ss -tlnp | grep 5900`), and a viewer can log in with the VM user's password.
 
 Skipped, because the VM can't show them:
 
 - the NVIDIA 580 legacy driver (`legacy_580`): there is no NVIDIA GPU in Hyper-V, so check it
   on hardware;
 - saved Wi-Fi surviving the first build: the VM has no Wi-Fi;
-- hyprpaper: Hyper-V has no render node, so the loop expects the swaybg fallback and marks it
-  WARN.
+- 3D rendering: niri's docs ask for a VM with 3D acceleration, which Hyper-V doesn't have. The
+  "vm" GPU setting renders in software (LIBGL_ALWAYS_SOFTWARE) and draws the cursor with the
+  frame; if niri still won't start in the VM, the session checks and screenshots fail.

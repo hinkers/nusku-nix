@@ -1,6 +1,6 @@
 # Catppuccin Mocha + the host's accent for everything that is not a single app's config:
 #  - nusku-arch theme/templates/*.tmpl rendered to ~/.config/nusku/theme/<name> (the paths
-#    nusku-arch's configs read: hypr colours/cursor, hyprlock colours, kitty accent, colors.css,
+#    Nusku's configs read: niri colours/cursor, hyprlock colours, kitty accent, colors.css,
 #    colors.rasi, gtk.css, nvim-accent.lua);
 #  - GTK: adw-gtk3-dark + Papirus-Dark (folders in the accent colour) + Noto Sans 11, with the
 #    rendered gtk.css on top (nusku-arch settings.ini templates and config/gtk-*/gtk.css);

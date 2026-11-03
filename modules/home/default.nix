@@ -6,7 +6,7 @@
 {
   imports = [
     ./theme.nix
-    ./hyprland.nix
+    ./niri.nix
     ./panels.nix
     ./menus.nix
     ./shell.nix
@@ -15,6 +15,7 @@
     ./neovim.nix
     ./langs.nix
     ./commands.nix
+    ./wayvnc.nix
   ];
 
   home.username = osConfig.nusku.user;

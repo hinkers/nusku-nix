@@ -1,0 +1,136 @@
+// Nusku - niri config. Docs: https://yalter.github.io/niri/ (or the niri wiki).
+// This file is a read-only link into the build: change it in the checkout's config/niri and
+// run nusku-rebuild. Your own settings go in ~/.config/nusku/local.kdl (included last, so it wins).
+//
+// Includes are positional: a file included later overrides what came before it.
+
+input {
+    // The keyboard layout is in ../nusku/input.kdl (from settings.json "keymap").
+    touchpad {
+        tap
+        natural-scroll
+        dwt
+    }
+    // Focus follows the mouse, but never scrolls the view to reach a window.
+    focus-follows-mouse max-scroll-amount="0%"
+}
+
+// Every output at its preferred mode with niri's automatic scale. Built-in laptop screens get
+// a scale in ../nusku/gpu.kdl; set your own outputs in local.kdl, e.g.
+//   output "DP-1" { mode "2560x1440@144"; scale 1; position x=0 y=0; }
+
+layout {
+    gaps 10
+    center-focused-column "never"
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+    default-column-width { proportion 0.5; }
+
+    // A thin border in the accent colour (colours: ../nusku/theme/niri-colors.kdl).
+    focus-ring { off; }
+    border {
+        width 2
+    }
+    shadow {
+        on
+        softness 12
+        spread 2
+    }
+}
+
+// Blur for windows that ask for it, and for the rules below.
+blur {
+    passes 3
+    offset 3
+}
+
+prefer-no-csd
+
+// niri's own screenshots (Print, Ctrl+Print, Alt+Print) also go to the clipboard.
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+hotkey-overlay {
+    skip-at-startup
+}
+
+environment {
+    QT_QPA_PLATFORM "wayland;xcb"
+    QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+    SDL_VIDEODRIVER "wayland,x11"
+    MOZ_ENABLE_WAYLAND "1"
+    ELECTRON_OZONE_PLATFORM_HINT "auto"
+    NIXOS_OZONE_WL "1"
+}
+
+// Session start. The Nusku shell (bar, quick settings, notifications), swayidle, the polkit
+// agent and Sunshine are systemd user services started with the session
+// (graphical-session.target), not from here.
+spawn-at-startup "nusku-wallpaper" "restore"
+spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
+spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
+
+// --- Window rules ----------------------------------------------------------------------------
+
+// Rounded corners everywhere.
+window-rule {
+    geometry-corner-radius 10
+    clip-to-geometry true
+}
+
+// Kitty is semi-transparent (config/kitty/kitty.conf); blur what shows through it. The border
+// is not drawn behind it, so it doesn't tint the background.
+window-rule {
+    match app-id="^kitty$"
+    match app-id="^nusku-nmtui$"
+    draw-border-with-background false
+    background-effect {
+        blur true
+    }
+}
+
+// Utility windows float.
+window-rule {
+    match app-id=r#"^(org\.pulseaudio\.pavucontrol|pavucontrol)$"#
+    match app-id=r#"^(\.blueman-manager-wrapped|blueman-manager)$"#
+    match app-id="^nm-connection-editor$"
+    match app-id="^xdg-desktop-portal-gtk$"
+    open-floating true
+}
+
+// Network picker (the panel's Wi-Fi ›, or right-click the bar's network icon): nmtui in a floating kitty.
+window-rule {
+    match app-id="^nusku-nmtui$"
+    open-floating true
+    default-column-width { fixed 720; }
+    default-window-height { fixed 520; }
+}
+
+// The bar is slightly see-through: blur what's behind it.
+layer-rule {
+    match namespace="^nusku-bar$"
+    background-effect {
+        blur true
+    }
+}
+
+// --- Includes (order matters: later wins) ---------------------------------------------------
+
+// The keybinds. Two layouts ship with Nusku; include exactly one:
+//   binds-nusku.kdl  Nusku's own binds (Super+Return terminal, Super+Space launcher, ...)
+//   binds-niri.kdl   niri's own default binds, with Nusku's apps and menus
+// Either way, Super+/ searches them (nusku-menu-keybinds) and Super+Shift+/ is niri's own list.
+include "binds-nusku.kdl"
+
+// Written by Nix (modules/home/theme.nix): colours and cursor for the chosen accent.
+include "../nusku/theme/niri-colors.kdl"
+// Written by Nix (modules/nixos/gpu.nix): GPU environment and laptop screen scale.
+include "../nusku/gpu.kdl"
+// Written by Nix (modules/home/niri.nix): the keyboard layout from settings.json.
+include "../nusku/input.kdl"
+// Written by Nix (modules/home/*.nix): startup commands and binds for the apps you picked.
+include "../nusku/apps.kdl"
+// Yours: created once, never overwritten. Loaded last, so it wins.
+include optional=true "../nusku/local.kdl"

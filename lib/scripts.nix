@@ -1,5 +1,5 @@
 # Packages one of scripts/<name> so its runtime tools are on PATH, whatever PATH the caller has
-# (Hyprland binds, systemd units, waybar). Built with writeShellApplication: the script's own
+# (niri binds, systemd units, the Nusku shell). Built with writeShellApplication: the script's own
 # shebang line is dropped (writeShellApplication adds its own) and shellcheck runs at build time.
 # No `set` options are added: each script's own `set` line decides (some nusku-arch scripts
 # deliberately run without errexit). Don't read the script back from $0: its first lines are

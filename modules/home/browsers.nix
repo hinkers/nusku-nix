@@ -87,13 +87,11 @@ in
     (lib.hm.dag.entryAfter [ "linkGeneration" "obsidian" ] ''
       run ${nusku-obsidian-theme}/bin/nusku-obsidian-theme || true
     '');
-  # Loaded by hyprland.lua when present (Nix-written app autostart entries).
-  xdg.configFile."nusku/autostart.lua" = mkIf (picked "obsidian") {
+  # Included by niri's config.kdl (Nix-written startup commands and binds for picked apps).
+  xdg.configFile."nusku/apps.kdl" = mkIf (picked "obsidian") {
     text = ''
-      -- Obsidian: Catppuccin in vaults made since the last rebuild (modules/home/browsers.nix).
-      hl.on("hyprland.start", function()
-          hl.exec_cmd("nusku-obsidian-theme")
-      end)
+      // Obsidian: Catppuccin in vaults made since the last rebuild (modules/home/browsers.nix).
+      spawn-at-startup "nusku-obsidian-theme"
     '';
   };
 }

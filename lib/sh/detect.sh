@@ -65,7 +65,7 @@ detect_prime_ids() {
 }
 
 # detect_panels GPU: JSON list of the built-in panels that need a scale: 1.25 for each 1920x1200
-# or 1920x1080 laptop screen (eDP), where Hyprland's auto scale picks 1.5 and leaves only 1280x800
+# or 1920x1080 laptop screen (eDP), where an automatic scale of 1.5 would leave only 1280x800
 # of room (nusku-arch gpu_panel_lua). Virtual machines get none.
 detect_panels() {
     local dir="${NUSKU_DRM_DIR:-/sys/class/drm}" conn name mode out=""
@@ -170,7 +170,7 @@ keymap_xkb() {
 }
 
 # detect_keymap: the keyboard as an xkb layout (settings.json "keymap" sets X11 and SDDM, the
-# console and Hyprland): localectl's X11 Layout first, else its console keymap as an xkb
+# console and niri): localectl's X11 Layout first, else its console keymap as an xkb
 # layout, else us.
 detect_keymap() {
     local k="${NUSKU_KEYMAP:-}"

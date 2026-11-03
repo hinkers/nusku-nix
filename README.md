@@ -1,6 +1,6 @@
 # nusku-nix
 
-The Nusku desktop (Hyprland in Catppuccin Mocha with your accent colour, from
+The Nusku desktop ([niri](https://github.com/YaLTeR/niri) in Catppuccin Mocha with your accent colour, from
 [nusku-arch](https://github.com/hinkers/nusku-arch)) rebuilt on NixOS as a flake.
 
 The installer asks its questions once and saves the answers for each machine in
@@ -34,7 +34,7 @@ builds it. Push the commit (`git push`) so a reinstall can find it. Each run log
 installed (`stateVersion`); leave it as it is.
 
 Before the build it checks your home for files where Nusku puts its own, such as an older
-`~/.config/hypr`, `~/.config/nvim` or `~/.zshrc` (from nusku-arch, or your own dotfiles). Home
+`~/.config/niri`, `~/.config/nvim` or `~/.zshrc` (from nusku-arch, or your own dotfiles). Home
 Manager won't replace files it didn't make, so it lists them and offers to move them into
 `~/nusku-backup-<time>/` (same layout) before building, or to stop. Nothing is deleted.
 
@@ -80,7 +80,45 @@ rosewater flamingo pink mauve red maroon peach yellow green teal sky sapphire bl
 Log out and back in after the rebuild to see the new colour everywhere. (nusku-arch's instant
 `nusku-theme` is gone: the colours are part of the build.)
 
-The wallpaper picker (Super + W) is instant and isn't part of the build; your choice is kept.
+The wallpaper picker (Super + Alt + W) is instant and isn't part of the build; your choice is kept.
+
+## The desktop
+
+niri lays windows out in columns on an endless strip that scrolls sideways, with workspaces
+stacked above and below; Super + O shows them all. The keybinds (`config/niri/binds-nusku.kdl`):
+
+- Super + Return terminal, Super + Space app launcher, Super + E files, Super + B browser
+- Super + H J K L or the arrows: move between windows; add Shift to move the window
+- Super + U / D: the workspace above / below (Shift moves the window there); Super + 1…0 a
+  numbered workspace
+- Super + Q close, Super + F maximize (full width), Super + M maximize to the edges, Super +
+  Shift + F fullscreen, Super + T float, Super + Shift + T column as tabs,
+  Super + P cycle the column width, Super + Ctrl + arrows resize
+- Super + N quick settings, Super + V clipboard, Super + W wallpaper, Super + Escape power
+  menu, Super + Alt + L lock
+- Super + / searches every bind (and runs the one you pick); Super + Shift + / is niri's list
+
+The bar, the quick settings panel and the notifications are Nusku's own shell, built with
+[Quickshell](https://quickshell.org) (`config/quickshell/nusku`, in your accent colour):
+
+- The bar: workspaces, the window title, the clock (click for the calendar), the tray, the
+  battery and one pill for network, Bluetooth and notifications.
+- The pill (or Super + N) opens quick settings: Wi-Fi and Bluetooth (› picks a network or a
+  device), Do Not Disturb, night light, airplane mode, keep awake, mute, screenshot, power,
+  brightness and volume, power profiles, what's playing, and the notifications. Right-click
+  the pill's network or Bluetooth icon for its picker, the bell for Do Not Disturb.
+- New notifications pop up in the top right corner; critical ones stay until you close them.
+
+It runs as the `nusku-shell` user service (`systemctl --user restart nusku-shell` if it ever
+needs a kick). Scripts can drive it, e.g. `qs -c nusku ipc call panel toggle`.
+
+niri's own default binds, with Nusku's apps and menus added, are in
+`config/niri/binds-niri.kdl`. To use them instead, change `include "binds-nusku.kdl"` to
+`include "binds-niri.kdl"` in `config/niri/config.kdl` and run `nusku-rebuild`.
+
+The lock screen is hyprlock (it locks after 10 minutes idle, and the screens turn off a minute
+later); screenshots are niri's own (Print, then Enter to save the region: they go to the
+clipboard and `~/Pictures/Screenshots`).
 
 ## Everyday commands
 
@@ -133,24 +171,25 @@ change your files or the repo. Fix the problem in the checkout and run `nusku-re
 
 Nusku creates these once and never overwrites them:
 
-- `~/.config/nusku/local.lua` — your Hyprland settings (monitors, input, extra binds). It is
-  loaded last, so it wins.
+- `~/.config/nusku/local.kdl` — your niri settings (monitors, input, extra binds). It is
+  included last, so it wins; a key you bind there replaces Nusku's bind for that key.
 - `~/.config/nusku/local.zsh` — your zsh additions, sourced at the end of `~/.zshrc`.
 
-Built-in 1920×1200 and 1920×1080 laptop screens start at 1.25× scale; a `hl.monitor` line in
-`local.lua` overrides that. Hyprland's config is
-[Lua](https://wiki.hypr.land/Configuring/). For example:
+Built-in 1920×1200 and 1920×1080 laptop screens start at 1.25× scale; an `output` block in
+`local.kdl` overrides that. niri's config is [KDL](https://yalter.github.io/niri/Configuration:-Introduction.html),
+and niri reloads it as soon as you save. For example:
 
-```lua
-hl.monitor({ output = "DP-1", mode = "2560x1440@144", position = "0x0", scale = 1 })
-hl.config({ input = { kb_layout = "us,de", kb_options = "grp:alt_shift_toggle" } })
-local B = require("bindlib")
-B.bind("SUPER + D", "Discord", 'hl.dsp.exec_cmd("discord")')
+```kdl
+output "DP-1" { mode "2560x1440@144"; scale 1; position x=0 y=0; }
+input { keyboard { xkb { layout "us,de"; options "grp:alt_shift_toggle"; } } }
+binds {
+    Mod+Shift+D hotkey-overlay-title="Discord" { spawn "discord"; }
+}
 ```
 
-Binds made with plain `hl.bind` work but don't show in the keybind menu (Super + /).
+Binds with a `hotkey-overlay-title` show in niri's keybind list (Super + Shift + /).
 
-Most of the other configs Nusku sets up in your home folder (Hyprland, Waybar, kitty and so on)
+Most of the other configs Nusku sets up in your home folder (niri, the shell, kitty and so on)
 are links into the build, so they are read-only: change them in the checkout's `config/` and
 run `nusku-rebuild`.
 
@@ -211,9 +250,11 @@ over the machine. Log out and back in to use `docker` without sudo. Compose is t
   reachable from this PC only.
 - The build may print warnings about obsolete Avahi options when Sunshine is picked. They come
   from nixpkgs' own Sunshine module and are harmless.
-- **wayvnc** shares this screen. Its port (5900) is not opened in the firewall, because plain VNC
-  has no password or encryption. Reach it through an SSH tunnel:
-  `ssh -L 5900:localhost:5900 you@this-pc`, then point the viewer at `localhost`.
+- **wayvnc** shares this screen. It starts at login and listens on port 5900, which is opened in
+  the firewall. Connect with a VNC viewer (Remmina, TigerVNC) to `this-pc:5900` and log in with
+  this PC's user name and password. The connection is always encrypted; the viewer may ask you
+  to accept the PC's certificate the first time. Viewers that only know plain VNC passwords
+  can't connect. `systemctl --user status wayvnc` shows whether it's running.
 
 ### Snapper
 

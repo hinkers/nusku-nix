@@ -22,52 +22,15 @@ warn() {
     printf 'nusku-wallpaper: warning: %s\n' "$*" >&2
 }
 
-_have_hyprland() {
-    command -v hyprctl >/dev/null 2>&1 && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]
+_have_niri() {
+    command -v niri >/dev/null 2>&1 && [ -n "${NIRI_SOCKET:-}" ]
 }
 
-# Wait up to ~5 s for the hyprpaper IPC socket to answer (login race).
-_wait_ready() {
-    local i
-    for ((i = 0; i < ${NUSKU_HYPRPAPER_WAIT:-50}; i++)); do
-        if hyprctl hyprpaper listactive >/dev/null 2>&1; then
-            return 0
-        fi
-        sleep 0.1
-    done
-    return 1
-}
-
-# _detect_backend: set BACKEND to hyprpaper (its IPC answers), swaybg (fallback where
-# hyprpaper cannot start, e.g. Hyper-V: no render node, so no linux-dmabuf, which
-# hyprpaper 0.8's toolkit requires) or none.
-BACKEND=""
-_detect_backend() {
-    [ -z "$BACKEND" ] || return 0
-    if ! _have_hyprland; then
-        BACKEND=none
-    elif _wait_ready; then
-        BACKEND=hyprpaper
-    elif command -v swaybg >/dev/null 2>&1; then
-        BACKEND=swaybg
-    else
-        BACKEND=none
-        warn "hyprpaper did not answer; wallpaper not applied"
-    fi
-}
-
-# _apply MONITOR FILE: the only place that talks to hyprpaper (0.8: wallpaper MON,PATH,FIT).
+# _apply: (re)start swaybg from the saved state ("fill" = cover). swaybg prefers an exact
+# output match over the * entry. The only place that draws the wallpaper.
 _apply() {
-    _detect_backend
-    [ "$BACKEND" = hyprpaper ] || return 0
-    hyprctl hyprpaper wallpaper "$1,$2,cover" >/dev/null 2>&1 || warn "hyprpaper rejected $2 for '$1'"
-}
-
-# _swaybg_sync: (re)start swaybg from the saved state ("fill" = cover). swaybg prefers an
-# exact output match over the * entry, like the hyprpaper path.
-_swaybg_sync() {
-    _detect_backend
-    [ "$BACKEND" = swaybg ] || return 0
+    _have_niri || return 0
+    command -v swaybg >/dev/null 2>&1 || { warn "swaybg is not installed; wallpaper not applied"; return 0; }
     local line k v args=()
     while IFS= read -r line; do
         [ -n "$line" ] || continue
@@ -76,13 +39,9 @@ _swaybg_sync() {
         [ -f "$v" ] && args+=(-o "$k" -i "$v" -m fill)
     done <"$state_file"
     [ "${#args[@]}" -gt 0 ] || return 0
-    pkill -x -u "$(id -u)" swaybg 2>/dev/null || true
+    # Nix wraps swaybg: the running process is called .swaybg-wrapped.
+    pkill -x -u "$(id -u)" '(\.)?swaybg(-wrapped)?' 2>/dev/null || true
     setsid -f swaybg "${args[@]}" >/dev/null 2>&1 </dev/null || warn "swaybg failed to start"
-}
-
-_monitors() {
-    _have_hyprland || return 0
-    hyprctl monitors -j 2>/dev/null | jq -r '.[].name' 2>/dev/null || true
 }
 
 # _state_get KEY: print the path saved for KEY, if any.
@@ -146,21 +105,8 @@ cmd_set() {
     mv -f "$tmp" "$state_file"
     _update_link
 
-    if [ "$key" = '*' ]; then
-        _sddm_copy "$file"
-        local mons m
-        mons="$(_monitors)"
-        if [ -z "$mons" ]; then
-            _apply "" "$file"
-        else
-            while IFS= read -r m; do
-                _apply "$m" "$file"
-            done <<<"$mons"
-        fi
-    else
-        _apply "$key" "$file"
-    fi
-    _swaybg_sync
+    [ "$key" != '*' ] || _sddm_copy "$file"
+    _apply
 }
 
 # _prune_missing: drop saved entries whose file is gone (e.g. the repo was moved);
@@ -197,26 +143,8 @@ cmd_restore() {
         cmd_set "$default_wallpaper" all
         return 0
     fi
-    local line k v wild mons m
-    wild="$(_state_get '*')"
-    while IFS= read -r line; do
-        k="${line%%=*}"
-        v="${line#*=}"
-        [ "$k" = '*' ] && continue
-        [ -f "$v" ] && _apply "$k" "$v"
-    done <"$state_file"
-    if [ -n "$wild" ] && [ -f "$wild" ]; then
-        mons="$(_monitors)"
-        if [ -z "$mons" ]; then
-            _apply "" "$wild"
-        else
-            while IFS= read -r m; do
-                [ -n "$(_state_get "$m")" ] || _apply "$m" "$wild"
-            done <<<"$mons"
-        fi
-    fi
     _update_link
-    _swaybg_sync
+    _apply
 }
 
 cmd_list() {

@@ -3,7 +3,7 @@
 # Gen 1-3 Pokémon via krabby when the `pokemon` app is picked), btop (nusku-arch theme, writable
 # config), bat/fzf/eza (catppuccin/nix themes) and Yazi (picked app; catppuccin/nix theme in the
 # accent, Papirus-friendly launcher icon).
-# ~/.config/nusku/local.zsh is the user's (created in hyprland.nix).
+# ~/.config/nusku/local.zsh is the user's (created in niri.nix).
 { osConfig, config, lib, pkgs, ... }:
 let
   scripts = import ../../lib/scripts.nix { inherit pkgs lib; };
@@ -50,6 +50,16 @@ in
   };
   xdg.configFile."yazi/yazi.toml" = lib.mkIf (picked "yazi") {
     source = ../../config/yazi/yazi.toml;
+  };
+  # Yazi alongside Thunar (Super+E), only when picked: no dead bind otherwise. A key free in
+  # both of niri.nix's bind layouts.
+  xdg.configFile."nusku/apps.kdl" = lib.mkIf (picked "yazi") {
+    text = ''
+      // Yazi: the file manager in the terminal (modules/home/shell.nix).
+      binds {
+          Super+Alt+E hotkey-overlay-title="File manager in the terminal: Yazi" { spawn "kitty" "-e" "yazi"; }
+      }
+    '';
   };
   # nusku-arch overrides.list `icon yazi.desktop mc`: Papirus has no yazi icon. A copy of
   # nixpkgs' yazi.desktop with only the icon changed (HM puts it ahead of yazi's own).

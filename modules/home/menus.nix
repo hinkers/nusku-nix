@@ -1,17 +1,18 @@
 # Rofi and the menus: nusku-arch's rofi config and `nusku` theme (Catppuccin Mocha + the accent
-# from ~/.config/nusku/theme/colors.rasi), the power / clipboard / keybind menus, nusku-browser
-# (SUPER + B) and the launcher clean-up. The wallpaper menu is in hyprland.nix; the Wi-Fi and
-# Bluetooth pickers in panels.nix. Binds (keybinds.lua) and the swaync power button call the
-# scripts by name.
+# from ~/.config/nusku/theme/colors.rasi), the keybind, power and clipboard menus, nusku-browser
+# (Super + B) and the launcher clean-up. The wallpaper menu is in niri.nix; the Wi-Fi and
+# Bluetooth pickers in panels.nix. Binds (config/niri/binds-*.kdl) and the shell's power button
+# call the scripts by name. niri's own keybind list is Super + Shift + /.
 { osConfig, lib, pkgs, ... }:
 let
   scripts = import ../../lib/scripts.nix { inherit pkgs lib; };
-  hyprctl = osConfig.programs.hyprland.package; # the same Hyprland the session runs
+  niri = osConfig.programs.niri.package; # the same niri the session runs
 
   menuScripts = [
+    # Super + /: reads the niri config it lists (config.kdl and its includes).
     (scripts.mkScript {
       name = "nusku-menu-keybinds";
-      deps = with pkgs; [ coreutils gnused rofi libnotify hyprctl ];
+      deps = with pkgs; [ coreutils rofi libnotify niri ];
     })
     (scripts.mkScript {
       name = "nusku-menu-clipboard";
@@ -20,7 +21,7 @@ let
     # systemctl comes from the system (/run/current-system/sw/bin, on every caller's PATH).
     (scripts.mkScript {
       name = "nusku-menu-power";
-      deps = [ pkgs.rofi hyprctl osConfig.programs.hyprlock.package ];
+      deps = [ pkgs.rofi niri osConfig.programs.hyprlock.package ];
     })
     # gtk-launch (gtk3) starts the browser's desktop entry; xdg-mime reads the default.
     (scripts.mkScript {

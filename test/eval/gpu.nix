@@ -17,10 +17,14 @@ in
     && builtins.elem "nvidia" open.services.xserver.videoDrivers;
   "nvidia proprietary: closed module on the 580 legacy branch" =
     !prop.hardware.nvidia.open && lib.hasPrefix "580." prop.hardware.nvidia.package.version;
-  "nvidia: hyprland env vars" =
-    has ''hl.env("LIBVA_DRIVER_NAME", "nvidia")'' open.nusku.internal.hyprGpuLua
-    && has ''hl.env("NVD_BACKEND", "direct")'' open.nusku.internal.hyprGpuLua
-    && has ''hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")'' open.nusku.internal.hyprGpuLua;
+  "nvidia: niri env vars" =
+    has ''LIBVA_DRIVER_NAME "nvidia"'' open.nusku.internal.niriGpuKdl
+    && has ''NVD_BACKEND "direct"'' open.nusku.internal.niriGpuKdl
+    && has ''__GLX_VENDOR_LIBRARY_NAME "nvidia"'' open.nusku.internal.niriGpuKdl;
+  "nvidia: niri's VRAM fix (application profile for the niri process)" =
+    let f = open.environment.etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json".text; in
+    has "GLVidHeapReuseRatio" f && has ''"matches":"niri"'' f
+    && !(amd.environment.etc ? "nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json");
   "hybrid intel: PRIME offload with bus ids" =
     hi.hardware.nvidia.prime.offload.enable && hi.hardware.nvidia.prime.offload.enableOffloadCmd
     && hi.hardware.nvidia.prime.intelBusId == "PCI:0:2:0" && hi.hardware.nvidia.prime.nvidiaBusId == "PCI:1:0:0"
@@ -29,17 +33,16 @@ in
     ha.hardware.nvidia.prime.offload.enable && ha.hardware.nvidia.prime.amdgpuBusId == "PCI:5:0:0"
     && !ha.hardware.nvidia.open;
   "hybrid: no nvidia env vars, runs on the iGPU" =
-    !(has "LIBVA_DRIVER_NAME" hi.nusku.internal.hyprGpuLua) && has "prime-run" hi.nusku.internal.hyprGpuLua;
-  "panels: gpu.lua has the panel's monitor line with scale 1.25" =
-    has ''hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1.25 })'' hi.nusku.internal.hyprGpuLua;
-  "no panels: no monitor line" = !(has "hl.monitor" amd.nusku.internal.hyprGpuLua);
+    !(has "LIBVA_DRIVER_NAME" hi.nusku.internal.niriGpuKdl) && has "prime-run" hi.nusku.internal.niriGpuKdl;
+  "panels: gpu.kdl has the panel's output block with scale 1.25" =
+    has ''output "eDP-1" { scale 1.25; }'' hi.nusku.internal.niriGpuKdl;
+  "no panels: no output block" = !(has "output " amd.nusku.internal.niriGpuKdl);
   "amd/intel: mesa with 32-bit and vaapi" =
     amd.hardware.graphics.enable && amd.hardware.graphics.enable32Bit
     && intel.hardware.graphics.enable && intel.hardware.graphics.enable32Bit
     && builtins.any (p: lib.hasPrefix "intel-media-driver" p.name) intel.hardware.graphics.extraPackages;
-  "vm: hyper-v guest, software rendering env, no hw cursor" =
+  "vm: hyper-v guest, software rendering env, no cursor plane" =
     vm.virtualisation.hypervGuest.enable
-    && has ''hl.env("LIBGL_ALWAYS_SOFTWARE", "1")'' vm.nusku.internal.hyprGpuLua
-    && has "no_hardware_cursors = true" vm.nusku.internal.hyprGpuLua
-    && has ''output = "", mode = "preferred", position = "auto", scale = 1'' vm.nusku.internal.hyprGpuLua;
+    && has ''LIBGL_ALWAYS_SOFTWARE "1"'' vm.nusku.internal.niriGpuKdl
+    && has "disable-cursor-plane" vm.nusku.internal.niriGpuKdl;
 }

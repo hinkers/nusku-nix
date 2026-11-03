@@ -38,10 +38,10 @@ in
   "hyperv: passwordless sudo for the host's user (tester)" =
     test.nusku.user == "tester" && nopasswdFor "tester" test;
   "hyperv: Hyper-V guest services (KVP reports the IP)" = test.virtualisation.hypervGuest.enable;
-  "hyperv: SDDM autologin into Hyprland as the user" =
+  "hyperv: SDDM autologin into niri as the user" =
     test.services.displayManager.autoLogin.enable
     && test.services.displayManager.autoLogin.user == "tester"
-    && test.services.displayManager.defaultSession == "hyprland";
+    && test.services.displayManager.defaultSession == "niri";
   "hyperv: nusku-rebuild in the VM keeps building the variant (NUSKU_FLAKE_ATTR)" =
     (test.environment.variables.NUSKU_FLAKE_ATTR or null) == "hyperv-small-hyperv-test";
   "hyperv: the full variant has the same test access" =

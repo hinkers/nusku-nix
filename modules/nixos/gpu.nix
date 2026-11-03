@@ -1,5 +1,5 @@
 # GPU drivers, NVIDIA (open or the 580 legacy branch), PRIME offload, Hyper-V guest support, and
-# the Hyprland GPU/monitor Lua that modules/home writes to ~/.config/nusku/gpu.lua.
+# the niri GPU/screen KDL that modules/home writes to ~/.config/nusku/gpu.kdl.
 # Ported from nusku-arch lib/gpu.sh (gpu_hypr_lua, gpu_panel_lua, gpu_vm_services).
 { config, lib, pkgs, ... }:
 let
@@ -12,46 +12,49 @@ let
   igpuKey = if cfg.gpu == "hybrid-amd" then "amdgpuBusId" else "intelBusId";
   hasPrime = isHybrid && (prime.${igpuKey} or null) != null && (prime.nvidiaBusId or null) != null;
 
-  # One hl.monitor line per built-in panel that needs a scale (nusku-arch gpu_panel_lua).
-  monitorLua = lib.concatMapStrings
-    (p: ''hl.monitor({ output = "${p.output}", mode = "preferred", position = "auto", scale = ${builtins.toJSON p.scale} })'' + "\n")
-    cfg.panels;
-  panelBlock = lib.optionalString (cfg.panels != [ ])
-    ("-- Laptop screen: auto scale picks 1.5 here; 1.25 fits more. Override in local.lua.\n" + monitorLua);
+  # One output block per built-in panel that needs a scale (nusku-arch gpu_panel_lua).
+  panelBlock = lib.optionalString (cfg.panels != [ ]) (
+    "// Laptop screen at 1.25 (an automatic 1.5 would leave little room). Override in local.kdl.\n"
+    + lib.concatMapStrings (p: ''output ${builtins.toJSON p.output} { scale ${builtins.toJSON p.scale}; }'' + "\n") cfg.panels
+  );
 
-  header = "-- Nusku GPU settings (generated from settings.json; loaded by ~/.config/hypr/hyprland.lua)\n";
-  gpuLua = header + {
+  header = "// Nusku GPU settings (generated from settings.json; included by ~/.config/niri/config.kdl)\n";
+  gpuKdl = header + {
     nvidia = ''
-      hl.env("LIBVA_DRIVER_NAME", "nvidia")
-      hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
-      hl.env("NVD_BACKEND", "direct")
+      environment {
+          LIBVA_DRIVER_NAME "nvidia"
+          __GLX_VENDOR_LIBRARY_NAME "nvidia"
+          NVD_BACKEND "direct"
+      }
     '' + panelBlock;
-    hybrid-intel = "-- Hybrid: Hyprland runs on the integrated GPU; use prime-run for apps.\n" + panelBlock;
-    hybrid-amd = "-- Hybrid: Hyprland runs on the integrated GPU; use prime-run for apps.\n" + panelBlock;
-    # Virtual displays report a 0x0 mm size and Hyprland's auto scale then picks 2. The VM is
-    # Hyper-V (nusku-arch's microsoft case), which needs software rendering.
+    hybrid-intel = "// Hybrid: niri runs on the integrated GPU; use prime-run for apps.\n" + panelBlock;
+    hybrid-amd = "// Hybrid: niri runs on the integrated GPU; use prime-run for apps.\n" + panelBlock;
+    # The VM is Hyper-V (nusku-arch's microsoft case): no 3D, so software rendering, and the
+    # cursor drawn with the frame.
     vm = ''
-      hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
-      hl.config({ cursor = { no_hardware_cursors = true } })
-      hl.env("LIBGL_ALWAYS_SOFTWARE", "1")
-      hl.env("WLR_RENDERER_ALLOW_SOFTWARE", "1")
+      environment {
+          LIBGL_ALWAYS_SOFTWARE "1"
+      }
+      debug {
+          disable-cursor-plane
+      }
     '';
-    amd = if cfg.panels == [ ] then "-- Nothing to override for this GPU.\n" else panelBlock;
-    intel = if cfg.panels == [ ] then "-- Nothing to override for this GPU.\n" else panelBlock;
+    amd = if cfg.panels == [ ] then "// Nothing to override for this GPU.\n" else panelBlock;
+    intel = if cfg.panels == [ ] then "// Nothing to override for this GPU.\n" else panelBlock;
   }.${cfg.gpu};
 in
 {
   options.nusku.internal = {
-    hyprGpuLua = mkOption {
+    niriGpuKdl = mkOption {
       type = types.lines;
       internal = true;
-      description = "Contents of ~/.config/nusku/gpu.lua (GPU env vars, monitor rules).";
+      description = "Contents of ~/.config/nusku/gpu.kdl (GPU environment, laptop screen scale).";
     };
   };
 
   config = mkMerge [
     {
-      nusku.internal.hyprGpuLua = gpuLua;
+      nusku.internal.niriGpuKdl = gpuKdl;
       assertions = [
         {
           assertion = isHybrid -> hasPrime;
@@ -79,6 +82,13 @@ in
         # nusku-arch's "proprietary" is the 580xx branch (nvidia-580xx-dkms).
         package = mkIf (cfg.nvidia == "proprietary") config.boot.kernelPackages.nvidiaPackages.legacy_580;
       };
+      # niri's NVIDIA fix (niri wiki, Nvidia): without it the driver keeps freed buffers and niri
+      # can hold around 1 GiB of VRAM instead of about 100 MiB.
+      environment.etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json".text =
+        builtins.toJSON {
+          rules = [{ pattern = { feature = "procname"; matches = "niri"; }; profile = "Limit Free Buffer Pool On Wayland Compositors"; }];
+          profiles = [{ name = "Limit Free Buffer Pool On Wayland Compositors"; settings = [{ key = "GLVidHeapReuseRatio"; value = 0; }]; }];
+        };
     })
 
     (mkIf (isNvidia && hasPrime) (mkIf isHybrid {

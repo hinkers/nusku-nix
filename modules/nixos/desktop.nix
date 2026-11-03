@@ -1,4 +1,4 @@
-# The Hyprland desktop at system level: Hyprland (its Lua config is linked by modules/home),
+# The niri desktop at system level: niri (its config is linked by modules/home), Xwayland,
 # SDDM with the Catppuccin theme, portals, fonts, Thunar, and Catppuccin for NixOS.
 # Ported from nusku-arch packages/base.pacman (Desktop, System, Theming) and lib/system.sh.
 { config, lib, pkgs, ... }:
@@ -35,10 +35,15 @@ in
       tty.enable = true;
     };
 
-    # Hyprland from the NixOS module: session file, portal, polkit, dconf. No HM hyprland module,
-    # which would write ~/.config/hypr/hyprland.conf next to the Lua config.
-    programs.hyprland.enable = true;
-    # Lock screen (also its PAM service).
+    # niri from the NixOS module: the niri session (niri-session, which reaches
+    # graphical-session.target, so user services like the Nusku shell and Sunshine start with
+    # it), its portals (GNOME for screencasting, GTK) and gnome-keyring. File pickers are GTK's:
+    # Nusku uses Thunar, not Nautilus.
+    programs.niri = {
+      enable = true;
+      useNautilus = false;
+    };
+    # The lock screen: hyprlock and its PAM service (its config is linked by modules/home/niri.nix).
     programs.hyprlock.enable = true;
 
     xdg.portal = {
@@ -49,7 +54,7 @@ in
     # SDDM on its default X11 display server, as in nusku-arch (sddm/10-nusku.conf).
     services.xserver.enable = true;
     services.displayManager = {
-      defaultSession = "hyprland";
+      defaultSession = "niri";
       sddm = {
         enable = true;
         package = pkgs.kdePackages.sddm; # the Qt 6 build the Catppuccin theme needs
@@ -91,9 +96,13 @@ in
     services.gvfs.enable = true;
     services.tumbler.enable = true;
     services.power-profiles-daemon.enable = true;
+    # The battery in the Nusku shell's bar (Quickshell reads it from UPower).
+    services.upower.enable = true;
     services.udisks2.enable = true;
 
     environment.systemPackages = with pkgs; [
+      # X11 apps: niri starts xwayland-satellite on demand when it is on PATH.
+      xwayland-satellite
       qt5.qtwayland
       qt6.qtwayland
       qt6.qtsvg

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Nusku installer: turns a fresh minimal NixOS install into the Nusku Hyprland desktop.
+# Nusku installer: turns a fresh minimal NixOS install into the Nusku niri desktop.
 # It writes this machine's answers to hosts/<name>/ (committed), then builds that host.
 # Run as your normal user (not root). See usage() or ./install.sh --help.
 set -Eeuo pipefail
@@ -11,7 +11,7 @@ usage() {
     cat <<'EOF'
 Usage: ./install.sh [options]
 
-Turns a fresh minimal NixOS install into the Nusku Hyprland desktop. Run it as your normal
+Turns a fresh minimal NixOS install into the Nusku niri desktop. Run it as your normal
 user; it asks for sudo for the build. Safe to re-run.
 
   (no options)     First run: asks the questions, writes hosts/<name>/, commits and builds it.

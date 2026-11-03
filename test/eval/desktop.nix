@@ -1,4 +1,4 @@
-# Named eval assertions (flake check `eval-desktop`): Home Manager, palette, theme, Hyprland.
+# Named eval assertions (flake check `eval-desktop`): Home Manager, palette, theme, niri.
 { hosts, lib, ... }:
 let
   palette = import ../../lib/palette.nix;
@@ -11,6 +11,7 @@ let
   hm = hmOf full;
   hmM = hmOf mauve;
   has = lib.hasInfix;
+  read = builtins.readFile;
   cfgText = h: name: h.xdg.configFile.${name}.text;
   targets = h: map (f: f.target) (builtins.attrValues h.home.file);
   notManaged = h: suffix: !(builtins.any (t: lib.hasSuffix suffix t) (targets h));
@@ -39,9 +40,12 @@ in
     !(builtins.tryEval (palette.render "blue" "{{nope}}")).success;
 
   # --- NixOS desktop -------------------------------------------------------------------------
-  "hyprland enabled (NixOS module)" = full.programs.hyprland.enable;
-  "home manager: no HM hyprland module (it would write hyprland.conf)" =
-    !hm.wayland.windowManager.hyprland.enable;
+  "niri enabled (NixOS module), the default session, no Hyprland" =
+    full.programs.niri.enable && full.services.displayManager.defaultSession == "niri"
+    && !full.programs.hyprland.enable;
+  "niri: GTK file chooser (Thunar, no Nautilus) and xwayland-satellite on PATH" =
+    !full.programs.niri.useNautilus
+    && builtins.elem "xwayland-satellite" (pkgNames full.environment.systemPackages);
   "sddm: enabled with the catppuccin theme in the accent" =
     full.services.displayManager.sddm.enable
     && full.services.displayManager.sddm.theme == "catppuccin-mocha-blue"
@@ -63,43 +67,55 @@ in
     full.catppuccin.enable && full.catppuccin.flavor == "mocha" && full.catppuccin.accent == "blue"
     && hm.catppuccin.enable && hm.catppuccin.flavor == "mocha" && hm.catppuccin.accent == "blue"
     && hmM.catppuccin.accent == "mauve";
-  "portals: hyprland and gtk" =
+  "portals: gnome (screencasting) and gtk" =
     full.xdg.portal.enable
     && builtins.any (p: lib.hasPrefix "xdg-desktop-portal-gtk" p.name) full.xdg.portal.extraPortals
-    && builtins.any (p: lib.hasPrefix "xdg-desktop-portal-hyprland" p.name) full.xdg.portal.extraPortals;
+    && builtins.any (p: lib.hasPrefix "xdg-desktop-portal-gnome" p.name) full.xdg.portal.extraPortals;
   "fonts: JetBrainsMono Nerd Font, Noto, Noto emoji" =
     let n = pkgNames full.fonts.packages; in
     builtins.any (lib.hasInfix "jetbrains-mono") n && builtins.elem "noto-fonts" n
     && builtins.elem "noto-fonts-color-emoji" n;
-  "hyprlock has a PAM service" = full.security.pam.services ? hyprlock;
+  "hyprlock enabled, with its PAM service" =
+    full.programs.hyprlock.enable && full.security.pam.services ? hyprlock;
 
   # --- Home Manager: linked configs ------------------------------------------------------------
-  "hm: hypr lua files linked" =
-    builtins.all (f: hm.xdg.configFile ? "hypr/${f}")
-      [ "hyprland.lua" "bindlib.lua" "keybinds.lua" "autostart.lua" "paths.lua" "rules.lua"
-        "hyprlock.conf" "hypridle.conf" "hyprpaper.conf" ];
-  "hm: keybinds call packaged scripts, not ~/.local/bin" =
-    !(has "~/.local/bin" (builtins.readFile hm.xdg.configFile."hypr/keybinds.lua".source))
-    && !(has "~/.local/bin" (builtins.readFile hm.xdg.configFile."hypr/autostart.lua".source));
-  "hm: autostart starts swaync through systemd" =
-    has ''hl.exec_cmd("systemctl --user start swaync")'' (builtins.readFile hm.xdg.configFile."hypr/autostart.lua".source);
+  "hm: niri config and both bind layouts linked; config.kdl checked by niri validate" =
+    builtins.all (f: hm.xdg.configFile ? "niri/${f}") [ "config.kdl" "binds-niri.kdl" "binds-nusku.kdl" ]
+    && lib.hasPrefix "niri-config.kdl" hm.xdg.configFile."niri/config.kdl".source.name;
+  "niri: Nusku's binds in use, every Nix-written file included, local.kdl last and optional" =
+    let main = read ../../config/niri/config.kdl; in
+    has ''include "binds-nusku.kdl"'' main && !(has ''include "binds-niri.kdl"'' main)
+    && builtins.all (f: has ''include "../nusku/${f}"'' main)
+      [ "theme/niri-colors.kdl" "gpu.kdl" "input.kdl" "apps.kdl" ]
+    && lib.hasSuffix ''include optional=true "../nusku/local.kdl"'' (lib.trim main);
+  "niri: binds and startup call packaged commands, not ~/.local/bin" =
+    builtins.all (f: !(has "~/.local/bin" (read (../../config/niri + "/${f}"))))
+      [ "config.kdl" "binds-niri.kdl" "binds-nusku.kdl" ];
+  "niri: kitty blurred, apps.kdl always written" =
+    has "background-effect" (read ../../config/niri/config.kdl)
+    && has "Nusku: startup commands and binds" (cfgText hm "nusku/apps.kdl");
+  "session services: the Nusku shell, swayidle and polkit-gnome start with the session" =
+    hm.systemd.user.services ? nusku-shell && hm.services.swayidle.enable && hm.services.polkit-gnome.enable
+    && !(hm.services.hyprpolkitagent.enable or false);
+  "lock screen: hyprlock.conf linked (wallpaper, palette colours); swayidle locks with hyprlock" =
+    hm.xdg.configFile."hypr/hyprlock.conf".source == ../../config/hypr/hyprlock.conf
+    && has "current-wallpaper" (read ../../config/hypr/hyprlock.conf)
+    && has "hyprlock-colors.conf" (read ../../config/hypr/hyprlock.conf)
+    && has "pidof hyprlock || " hm.services.swayidle.events.lock
+    && !(hm.programs.swaylock.enable or false);
   # --- keyboard layout (settings.json "keymap" is an xkb layout) ------------------------------
-  "keyboard: the xkb layout reaches X11/SDDM, the console (useXkbConfig) and Hyprland" =
+  "keyboard: the xkb layout reaches X11/SDDM, the console (useXkbConfig) and niri" =
     let gb = (hosts.vm-full.extendModules { modules = [{ nusku.keymap = lib.mkForce "gb"; }]; }).config; in
     gb.services.xserver.xkb.layout == "gb" && gb.console.useXkbConfig
-    && cfgText (hmOf gb) "nusku/input.lua" == ''
-      -- Nusku keyboard layout (generated from settings.json "keymap"; loaded by ~/.config/hypr/hyprland.lua)
-      hl.config({ input = { kb_layout = "gb" } })
-    ''
-    && full.services.xserver.xkb.layout == "us" && has ''kb_layout = "us"'' (cfgText hm "nusku/input.lua");
-  "keyboard: hypr/input.lua no longer fixes the layout; nusku/input.lua loads before local.lua" =
-    let main = builtins.readFile ../../config/hypr/hyprland.lua; in
-    !(has "kb_layout" (builtins.readFile ../../config/hypr/input.lua))
-    # nusku/input appears once, before nusku/local
-    && builtins.length (lib.splitString ''paths.nusku .. "/input")''
-      (builtins.head (lib.splitString ''paths.nusku .. "/local")'' main))) == 2;
-  "hm: gpu.lua at ~/.config/nusku/gpu.lua from the GPU module" =
-    cfgText hm "nusku/gpu.lua" == full.nusku.internal.hyprGpuLua;
+    && has ''layout "gb"'' (cfgText (hmOf gb) "nusku/input.kdl")
+    && full.services.xserver.xkb.layout == "us" && has ''layout "us"'' (cfgText hm "nusku/input.kdl");
+  "keyboard: config.kdl doesn't fix the layout; nusku/input.kdl is included before local.kdl" =
+    let main = read ../../config/niri/config.kdl; in
+    !(has "layout \"" main)
+    && builtins.length (lib.splitString ''include "../nusku/input.kdl"''
+      (builtins.head (lib.splitString ''include optional=true "../nusku/local.kdl"'' main))) == 2;
+  "hm: gpu.kdl at ~/.config/nusku/gpu.kdl from the GPU module" =
+    cfgText hm "nusku/gpu.kdl" == full.nusku.internal.niriGpuKdl;
   "hm: kitty linked, no remembered window size, semi-transparent" =
     has "remember_window_size no" (builtins.readFile hm.xdg.configFile."kitty/kitty.conf".source)
     && has "background_opacity 0.85" (builtins.readFile hm.xdg.configFile."kitty/kitty.conf".source)
@@ -111,21 +127,19 @@ in
     && hm.xdg.configFile ? "qt6ct/qt6ct.conf";
 
   # --- Home Manager: rendered theme ------------------------------------------------------------
-  "theme: hypr colours file has the accent (blue)" =
-    has ''accent = "rgb(89b4fa)"'' (cfgText hm "nusku/theme/hypr-colors.lua");
-  "theme: hypr colours file has the accent (mauve fixture)" =
-    has ''accent = "rgb(cba6f7)"'' (cfgText hmM "nusku/theme/hypr-colors.lua");
+  "theme: niri colours file has the accent (blue)" =
+    has ''active-color "#89b4fa"'' (cfgText hm "nusku/theme/niri-colors.kdl");
+  "theme: niri colours file has the accent (mauve fixture)" =
+    has ''active-color "#cba6f7"'' (cfgText hmM "nusku/theme/niri-colors.kdl");
   "theme: every nusku-arch template rendered to ~/.config/nusku/theme" =
     builtins.all (f: hm.xdg.configFile ? "nusku/theme/${f}")
-      [ "colors.css" "colors.rasi" "gtk.css" "hypr-colors.lua" "hypr-cursor.lua"
-        "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
+      [ "colors.css" "colors.rasi" "gtk.css" "niri-colors.kdl" "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
   "theme: no placeholders left" =
     builtins.all (f: !(has "{{" (cfgText hm "nusku/theme/${f}")))
-      [ "colors.css" "colors.rasi" "gtk.css" "hypr-colors.lua" "hypr-cursor.lua"
-        "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
+      [ "colors.css" "colors.rasi" "gtk.css" "niri-colors.kdl" "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
   "theme: kitty accent and cursor theme" =
     has "cursor #89b4fa" (cfgText hm "nusku/theme/kitty-accent.conf")
-    && has ''"catppuccin-mocha-mauve-cursors"'' (cfgText hmM "nusku/theme/hypr-cursor.lua");
+    && has ''"catppuccin-mocha-mauve-cursors"'' (cfgText hmM "nusku/theme/niri-colors.kdl");
   "theme: catppuccin cursors in the accent" =
     hm.home.pointerCursor.name == "catppuccin-mocha-blue-cursors"
     && hmM.home.pointerCursor.name == "catppuccin-mocha-mauve-cursors"
@@ -142,12 +156,12 @@ in
     && has "theme=catppuccin-mocha-blue" (cfgText hm "Kvantum/kvantum.kvconfig");
 
   # --- user files survive rebuilds -----------------------------------------------------------
-  "local.lua is not a managed file" = notManaged hm "nusku/local.lua";
+  "local.kdl is not a managed file" = notManaged hm "nusku/local.kdl";
   "local.zsh is not a managed file" = notManaged hm "nusku/local.zsh";
   "wallpaper state is not a managed file" =
     notManaged hm ".local/state/nusku/wallpapers" && notManaged hm ".local/state/nusku/current-wallpaper";
-  "activation creates local.lua and local.zsh only if missing" =
-    has ''[ ! -e "$nuskuDir/local.lua" ]'' (activation hm)
+  "activation creates local.kdl and local.zsh only if missing" =
+    has ''[ ! -e "$nuskuDir/local.kdl" ]'' (activation hm)
     && has ''[ ! -e "$nuskuDir/local.zsh" ]'' (activation hm);
 
   # --- scripts and wallpapers ------------------------------------------------------------------

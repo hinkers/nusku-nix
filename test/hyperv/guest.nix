@@ -38,7 +38,7 @@ in
   # KVP tells Hyper-V the VM's IP address (gpu "vm" turns this on too; the loop can't do without it).
   virtualisation.hypervGuest.enable = true;
 
-  # Straight into Hyprland at boot (nusku-arch's loop did the same), so the session's checks and
+  # Straight into niri at boot (nusku-arch's loop did the same), so the session's checks and
   # screenshots need no login.
   services.displayManager.autoLogin = {
     enable = true;

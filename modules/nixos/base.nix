@@ -48,7 +48,7 @@ in
   time.timeZone = cfg.timezone;
   i18n.defaultLocale = cfg.locale;
   # settings.json "keymap" is an xkb layout: X11 (the SDDM greeter) and the console use it;
-  # Hyprland gets it from ~/.config/nusku/input.lua (modules/home/hyprland.nix).
+  # niri gets it from ~/.config/nusku/input.kdl (modules/home/niri.nix).
   services.xserver.xkb.layout = cfg.keymap;
   console.useXkbConfig = true;
 

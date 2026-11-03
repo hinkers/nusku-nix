@@ -2,7 +2,7 @@
 # nusku-obsidian-theme: put the Catppuccin theme in every Obsidian vault and select it where the
 # vault has no theme chosen yet, once per vault: after that, the choice in Obsidian (Default
 # included) is the user's and is never replaced.
-# Run on each rebuild (Home Manager activation) and at each login (Hyprland autostart);
+# Run on each rebuild (Home Manager activation) and at each login (niri spawn-at-startup);
 # modules/home/browsers.nix. NUSKU_OBSIDIAN_THEME is the theme directory (manifest.json +
 # theme.css; catppuccin/nix's Obsidian theme in the Nix store).
 #

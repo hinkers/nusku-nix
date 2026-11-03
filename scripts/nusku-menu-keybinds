@@ -1,78 +1,290 @@
 #!/usr/bin/env bash
-# nusku-menu-keybinds: searchable list of every Hyprland keybind (SUPER + /). Picking a
-# runnable bind runs it; workspace-style groups open a second list for the member.
-# Reads ${XDG_RUNTIME_DIR}/nusku/keybinds.tsv, written by config/hypr/bindlib.lua:
-#   kind<TAB>group<TAB>keys<TAB>desc<TAB>runnable<TAB>expr
+# nusku-menu-keybinds: searchable list of every niri keybind (Super + /). Picking a bind runs it
+# (through `niri msg action`); workspace binds collapse to one line each, with a second list.
+#
+# niri can't list its binds over IPC, so this reads the config itself: ~/.config/niri/config.kdl
+# and the files it includes, in order (a later bind of the same key replaces the earlier one,
+# as in niri). Each bind must be on one line, as in Nusku's files:
+#   Mod+T hotkey-overlay-title="Open terminal" { spawn "kitty"; }
+# The description is hotkey-overlay-title, else one made from the action; title=null hides it.
 set -euo pipefail
 
-manifest="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nusku/keybinds.tsv"
-
-if [ ! -s "$manifest" ]; then
-    notify-send "Keybinds" "Keybind list not ready; reload Hyprland"
-    exit 0
-fi
+config="${NUSKU_NIRI_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/niri/config.kdl}"
 
 menu() { rofi -dmenu -i -p "$1" -theme nusku -format i "${@:2}"; }
+say() { notify-send "Keybinds" "$1" 2>/dev/null || true; }
 
-# The group column is empty for ungrouped binds; tab is whitespace to `read`, so mark it.
-mapfile -t records < <(sed -E 's/^([a-z]+)\t\t/\1\t-\t/' "$manifest")
+# --- reading KDL -------------------------------------------------------------------------------
 
-# Friendly key names for display only; the manifest and the binds stay raw.
+# tokenize LINE: split one line into TOKENS: "quoted" and r#"raw"# strings (unquoted),
+# name=value properties (value unquoted), bare words, and the { } ; punctuation.
+TOKENS=()
+tokenize() {
+    local s="$1" i=0 n=${#1} c tok hashes end
+    TOKENS=()
+    while ((i < n)); do
+        c="${s:i:1}"
+        case "$c" in
+            [[:space:]]) i=$((i + 1)); continue ;;
+            '{' | '}' | ';') TOKENS+=("$c"); i=$((i + 1)); continue ;;
+        esac
+        if [ "${s:i:2}" = "//" ]; then
+            break
+        fi
+        tok=""
+        # A bare word (or the name= of a property).
+        while ((i < n)); do
+            c="${s:i:1}"
+            case "$c" in [[:space:]] | '{' | '}' | ';' | '"') break ;; esac
+            # r"..." / r#"..."#: a raw string starts here (alone or as a property's value).
+            if [ "$c" = r ] && { [ -z "$tok" ] || [ "${tok: -1}" = "=" ]; } && [[ "${s:i}" =~ ^r(#*)\" ]]; then
+                break
+            fi
+            tok+="$c"
+            i=$((i + 1))
+        done
+        # A string, alone or as a property's value.
+        if ((i < n)) && { [ -z "$tok" ] || [ "${tok: -1}" = "=" ]; }; then
+            if [ "${s:i:1}" = '"' ]; then
+                i=$((i + 1))
+                while ((i < n)) && [ "${s:i:1}" != '"' ]; do
+                    if [ "${s:i:1}" = "\\" ]; then
+                        i=$((i + 1))
+                        case "${s:i:1}" in n) tok+=$'\n' ;; t) tok+=$'\t' ;; *) tok+="${s:i:1}" ;; esac
+                    else
+                        tok+="${s:i:1}"
+                    fi
+                    i=$((i + 1))
+                done
+                i=$((i + 1))
+            elif [[ "${s:i}" =~ ^r(#*)\" ]]; then
+                hashes="${BASH_REMATCH[1]}"
+                i=$((i + 2 + ${#hashes}))
+                end="\"$hashes"
+                while ((i < n)) && [ "${s:i:${#end}}" != "$end" ]; do
+                    tok+="${s:i:1}"
+                    i=$((i + 1))
+                done
+                i=$((i + ${#end}))
+            fi
+        fi
+        TOKENS+=("$tok")
+    done
+}
+
+# Every bind, in the order niri reads them: KEYS, DESC, ACTION (fields joined by \x1f).
+declare -A slot=() # lower-cased keys -> index, so a later bind replaces an earlier one
+b_keys=() b_desc=() b_act=()
+US=$'\x1f'
+
+# describe ACTION-TOKENS...: a description for a bind without hotkey-overlay-title (its
+# arguments, without name=value properties).
+describe() {
+    local name="$1" a args=()
+    shift
+    for a; do [[ "$a" =~ ^[a-z-]+= ]] || args+=("$a"); done
+    set -- "${args[@]}"
+    case "$name" in
+        spawn) printf 'Run %s' "$*" ;;
+        spawn-sh) printf 'Run %s' "$1" ;;
+        *)
+            name="${name//-/ }"
+            printf '%s%s' "${name^}" "${*:+ $*}"
+            ;;
+    esac
+}
+
+add_bind() {
+    local keys="${TOKENS[0]}" title="" hidden=0 t i=1 act=()
+    for ((; i < ${#TOKENS[@]}; i++)); do
+        t="${TOKENS[i]}"
+        [ "$t" = "{" ] && break
+        case "$t" in
+            hotkey-overlay-title=null) hidden=1 ;;
+            hotkey-overlay-title=*) title="${t#hotkey-overlay-title=}" ;;
+        esac
+    done
+    for ((i++; i < ${#TOKENS[@]}; i++)); do
+        t="${TOKENS[i]}"
+        [ "$t" = ";" ] || [ "$t" = "}" ] && break
+        act+=("$t")
+    done
+    [ "${#act[@]}" -gt 0 ] || return 0
+    local k="${keys,,}" idx
+    if [ "$hidden" = 1 ]; then
+        # Hidden, but it still replaces an earlier bind of the same key.
+        [ -z "${slot[$k]+x}" ] || b_act[${slot[$k]}]=""
+        return 0
+    fi
+    [ -n "$title" ] || title="$(describe "${act[@]}")"
+    local joined
+    joined="$(IFS="$US"; printf '%s' "${act[*]}")"
+    if [ -n "${slot[$k]+x}" ]; then
+        idx="${slot[$k]}"
+    else
+        idx="${#b_keys[@]}"
+        slot[$k]="$idx"
+    fi
+    b_keys[idx]="$keys" b_desc[idx]="$title" b_act[idx]="$joined"
+}
+
+# read_kdl FILE: the binds in FILE and in the files it includes (relative to FILE, or ~/...).
+read_kdl() {
+    local file="$1" dir line depth=0 in_binds=0 inc t
+    dir="$(dirname "$file")"
+    while IFS= read -r line || [ -n "$line" ]; do
+        tokenize "$line"
+        [ "${#TOKENS[@]}" -gt 0 ] || continue
+        if [ "$in_binds" = 1 ]; then
+            if [ "${TOKENS[0]}" = "}" ] && [ "${#TOKENS[@]}" -eq 1 ]; then
+                in_binds=0
+            else
+                add_bind
+            fi
+            continue
+        fi
+        if [ "$depth" -eq 0 ] && [ "${TOKENS[0]}" = include ]; then
+            inc="${TOKENS[${#TOKENS[@]} - 1]}"
+            case "$inc" in
+                \~/*) inc="$HOME/${inc:2}" ;; # niri's own ~/ form
+                /*) ;;
+                *) inc="$dir/$inc" ;;
+            esac
+            [ -r "$inc" ] && read_kdl "$inc"
+            continue
+        fi
+        if [ "$depth" -eq 0 ] && [ "${TOKENS[0]}" = binds ] && [ "${TOKENS[1]:-}" = "{" ]; then
+            in_binds=1
+            continue
+        fi
+        for t in "${TOKENS[@]}"; do
+            case "$t" in "{") depth=$((depth + 1)) ;; "}") depth=$((depth - 1)) ;; esac
+        done
+    done <"$file"
+}
+
+# --- the menu ----------------------------------------------------------------------------------
+
+# Friendly key names for display only.
 declare -A key_names=(
-    [slash]="/" [mouse:272]="Left drag" [mouse:273]="Right drag"
-    [mouse_down]="Scroll down" [mouse_up]="Scroll up" [Return]="Enter"
+    [Mod]="Super" [Slash]="/" [Return]="Enter" [Space]="Space" [Escape]="Esc"
+    [Page_Down]="Page Down" [Page_Up]="Page Up" [BracketLeft]="[" [BracketRight]="]"
+    [Comma]="," [Period]="." [Minus]="-" [Equal]="="
+    [WheelScrollDown]="Scroll down" [WheelScrollUp]="Scroll up"
+    [WheelScrollLeft]="Scroll left" [WheelScrollRight]="Scroll right"
     [XF86AudioRaiseVolume]="Volume Up key" [XF86AudioLowerVolume]="Volume Down key"
     [XF86AudioMute]="Mute key" [XF86AudioMicMute]="Mic Mute key"
     [XF86MonBrightnessUp]="Brightness Up key" [XF86MonBrightnessDown]="Brightness Down key"
-    [XF86AudioPlay]="Play key" [XF86AudioPause]="Pause key"
+    [XF86AudioPlay]="Play key" [XF86AudioPause]="Pause key" [XF86AudioStop]="Stop key"
     [XF86AudioNext]="Next key" [XF86AudioPrev]="Previous key"
 )
 pretty_keys() {
-    local IFS=' ' tok out=""
-    for tok in $1; do
-        [ "$tok" = "+" ] || tok="${key_names[$tok]:-$tok}"
-        out+="${out:+ }$tok"
+    local IFS='+' part out=""
+    for part in $1; do
+        out+="${out:+ + }${key_names[$part]:-$part}"
     done
     printf '%s' "$out"
 }
 
-# Menu entries in manifest order: group members are hidden, their group record stands in.
-entry_kind=() entry_group=() entry_keys=() entry_desc=() entry_run=() entry_expr=()
-width=0
-for rec in "${records[@]}"; do
-    IFS=$'\t' read -r kind group keys desc run expr <<<"$rec"
-    [ "$kind" = bind ] && [ "$group" != - ] && continue
-    entry_kind+=("$kind") entry_group+=("$group") entry_keys+=("$(pretty_keys "$keys")")
-    entry_desc+=("$desc") entry_run+=("$run") entry_expr+=("$expr")
-    [ "${#desc}" -gt "$width" ] && width="${#desc}"
-done
-
-lines=""
-for i in "${!entry_desc[@]}"; do
-    lines+="$(printf '%-*s    %s' "$width" "${entry_desc[$i]}" "${entry_keys[$i]}")"$'\n'
-done
-
-pick="$(printf '%s' "$lines" | menu "Keybinds")" || exit 0
-[[ "$pick" =~ ^[0-9]+$ ]] || exit 0
-[ "$pick" -lt "${#entry_kind[@]}" ] || exit 0
-
-if [ "${entry_kind[$pick]}" = group ]; then
-    gid="${entry_group[$pick]}"
-    member_desc=() member_expr=()
-    for rec in "${records[@]}"; do
-        IFS=$'\t' read -r kind group keys desc run expr <<<"$rec"
-        if [ "$kind" = bind ] && [ "$group" = "$gid" ]; then
-            member_desc+=("$desc") member_expr+=("$expr")
-        fi
+# run_action FIELDS: `niri msg action NAME [--prop [value]]... [-- ARGS...]`.
+run_action() {
+    local IFS="$US" f name opts=() args=()
+    read -r -a f <<<"$1"
+    name="${f[0]}"
+    for a in "${f[@]:1}"; do
+        case "$a" in
+            *=true) opts+=("--${a%=true}") ;;
+            *=false) ;;
+            [a-z]*=*) opts+=("--${a%%=*}" "${a#*=}") ;;
+            *) args+=("$a") ;;
+        esac
     done
-    [ "${#member_desc[@]}" -gt 0 ] || exit 0
-    sub="$(printf '%s\n' "${member_desc[@]}" | menu "${entry_expr[$pick]}")" || exit 0
-    [[ "$sub" =~ ^[0-9]+$ ]] || exit 0
-    [ "$sub" -lt "${#member_expr[@]}" ] || exit 0
-    hyprctl dispatch "${member_expr[$sub]}"
+    if [ "${#args[@]}" -gt 0 ]; then
+        niri msg action "$name" "${opts[@]}" -- "${args[@]}"
+    else
+        niri msg action "$name" "${opts[@]}"
+    fi
+}
+
+if [ ! -r "$config" ]; then
+    say "No niri config at $config"
+    exit 0
+fi
+read_kdl "$config"
+
+# Menu entries in config order: workspace binds collapse to one group line each.
+entry_kind=() entry_keys=() entry_desc=() entry_act=() entry_group=()
+declare -A group_at=() group_members=()
+group_of() {
+    local IFS="$US" f
+    read -r -a f <<<"$1"
+    [[ "${f[1]:-}" =~ ^[0-9]+$ ]] || return 1
+    case "${f[0]}" in
+        focus-workspace) echo go ;;
+        move-column-to-workspace | move-window-to-workspace) echo move ;;
+        *) return 1 ;;
+    esac
+}
+for i in "${!b_keys[@]}"; do
+    [ -n "${b_act[i]}" ] || continue
+    if g="$(group_of "${b_act[i]}")"; then
+        if [ -z "${group_at[$g]+x}" ]; then
+            group_at[$g]="${#entry_kind[@]}"
+            entry_kind+=(group) entry_keys+=("") entry_act+=("") entry_group+=("$g")
+            if [ "$g" = go ]; then entry_desc+=("Go to workspace"); else entry_desc+=("Move window to workspace"); fi
+        fi
+        group_members[$g]+="$i "
+        continue
+    fi
+    entry_kind+=(bind) entry_keys+=("$(pretty_keys "${b_keys[i]}")") entry_desc+=("${b_desc[i]}")
+    entry_act+=("$i") entry_group+=("")
+done
+if [ "${#entry_kind[@]}" -eq 0 ]; then
+    say "No keybinds found in $config"
     exit 0
 fi
 
-[ "${entry_run[$pick]}" = 1 ] || exit 0
-hyprctl dispatch "${entry_expr[$pick]}"
+# A group's keys: the shared modifiers, then the first and last key ("Super + 1…0").
+for g in "${!group_at[@]}"; do
+    read -r -a m <<<"${group_members[$g]}"
+    first="$(pretty_keys "${b_keys[${m[0]}]}")"
+    last="$(pretty_keys "${b_keys[${m[${#m[@]} - 1]}]}")"
+    entry_keys[${group_at[$g]}]="$first…${last##* + }"
+    IFS="$US" read -r -a f1 <<<"${b_act[${m[0]}]}"
+    IFS="$US" read -r -a f2 <<<"${b_act[${m[${#m[@]} - 1]}]}"
+    entry_desc[${group_at[$g]}]+=" ${f1[1]}–${f2[1]}"
+done
+
+# Mouse and wheel binds are listed but not run from the menu.
+runnable() { [[ ! "$1" =~ (Wheel|Mouse|Touchpad) ]]; }
+
+width=0
+for d in "${entry_desc[@]}"; do [ "${#d}" -gt "$width" ] && width="${#d}"; done
+# Padded by characters, not bytes (printf's width counts bytes; "–" is three).
+lines=""
+for i in "${!entry_desc[@]}"; do
+    d="${entry_desc[$i]}"
+    printf -v pad '%*s' $((width - ${#d} + 4)) ''
+    lines+="$d$pad${entry_keys[$i]}"$'\n'
+done
+
+pick="$(printf '%s' "$lines" | menu "Keybinds")" || exit 0
+[[ "$pick" =~ ^[0-9]+$ ]] && [ "$pick" -lt "${#entry_kind[@]}" ] || exit 0
+
+if [ "${entry_kind[$pick]}" = group ]; then
+    read -r -a m <<<"${group_members[${entry_group[$pick]}]}"
+    names=()
+    for i in "${m[@]}"; do
+        IFS="$US" read -r -a f <<<"${b_act[i]}"
+        names+=("Workspace ${f[1]}")
+    done
+    sub="$(printf '%s\n' "${names[@]}" | menu "Workspace")" || exit 0
+    [[ "$sub" =~ ^[0-9]+$ ]] && [ "$sub" -lt "${#m[@]}" ] || exit 0
+    run_action "${b_act[${m[$sub]}]}"
+    exit 0
+fi
+
+i="${entry_act[$pick]}"
+runnable "${b_keys[i]}" || exit 0
+run_action "${b_act[i]}"
 exit 0

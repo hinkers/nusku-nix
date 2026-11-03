@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Nusku - files in the home that Home Manager would have to replace. Home Manager never replaces a
-# file it didn't make, so a leftover (nusku-arch's ~/.config/hypr, kitty, nvim, ~/.zshrc, ...)
+# file it didn't make, so a leftover (kitty, nvim, ~/.zshrc, ...)
 # stops the switch. Before the build, install.sh lists them and offers to move them aside to a
 # timestamped folder, or to stop. Nothing is ever deleted.
 #

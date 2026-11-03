@@ -16,8 +16,8 @@
        test/hyperv/guest.nix: sshd, passwordless sudo, KVP, autologin). install.sh copies the
        VM's own /etc/nixos/hardware-configuration.nix into the host. It runs detached in the
        guest, so a network restart during the switch can't kill it; its output is streamed.
-    5. Set up probes (a second hyprland.start handler in local.lua, an Obsidian vault), reboot,
-       wait for SDDM autologin to start Hyprland and Waybar.
+    5. Set up probes (a spawn-at-startup in local.kdl, an Obsidian vault), reboot, wait for
+       SDDM autologin to start niri and the Nusku shell (bar).
     6. Check the session, theming, menus, apps and the ledger's VM items; screenshots with grim
        (desktop, fastfetch, rofi, keybinds, quick settings, calendar, GTK, and the picked
        Firefox / Neovim / Obsidian); a second rebuild must change nothing; a rollback
@@ -387,37 +387,36 @@ if ($installExit -ne 0) {
     exit 1
 }
 
-# Every guest script after the install: the session's runtime dir, Wayland socket and Hyprland
-# instance (so grim and hyprctl work over SSH), the system and user profiles on PATH, and two
-# helpers. NixOS wraps many programs (.waybar-wrapped), so processes are matched on the command line.
+# Every guest script after the install: the session's runtime dir, Wayland socket and niri
+# socket (so grim and niri msg work over SSH), the system and user profiles on PATH, and two
+# helpers. NixOS wraps many programs (.swaybg-wrapped), so processes are matched on the command line.
 $envPreamble = @'
 exec 2>&1
 export XDG_RUNTIME_DIR=/run/user/$(id -u)
 export PATH="/run/wrappers/bin:/etc/profiles/per-user/$(id -un)/bin:/run/current-system/sw/bin:$PATH"
 export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR" 2>/dev/null | grep -E '^wayland-[0-9]+$' | head -1)
-sig=$(ls -t "$XDG_RUNTIME_DIR/hypr/" 2>/dev/null | head -1)
-export HYPRLAND_INSTANCE_SIGNATURE="$sig"
+export NIRI_SOCKET=$(ls -t "$XDG_RUNTIME_DIR"/niri.*.sock 2>/dev/null | head -1)
 procs() { pgrep -u "$(id -u)" -f "(^|/)\.?$1(-wrapped)?( |$)"; }
 running() { procs "$1" >/dev/null; }
 environ_of() { tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null; }
+# The Nusku shell (Quickshell: bar, quick settings, notifications) is a user service.
+shellpid() { p=$(systemctl --user show -p MainPID --value nusku-shell 2>/dev/null); [ "${p:-0}" != 0 ] && echo "$p"; }
 '@ + "`n"
 
 # Before the reboot: probes the checks look at after it.
-#  - a second hyprland.start handler, in the user's own local.lua (loaded last), next to
-#    autostart.lua's: it must run too (hl.on accumulates handlers);
+#  - a spawn-at-startup in the user's own local.kdl (included last), next to config.kdl's: it
+#    must run too (the include is read, and startup commands add up);
 #  - an Obsidian vault in Obsidian's own list (as if Obsidian had made it), for the Catppuccin
-#    theme step (activation at boot and the nusku/autostart.lua handler at login).
+#    theme step (activation at boot and nusku/apps.kdl's spawn-at-startup at login).
 $probes = @'
 set -e
-rm -f /tmp/nusku-hl-on-probe
-lua="${XDG_CONFIG_HOME:-$HOME/.config}/nusku/local.lua"
-mkdir -p "$(dirname "$lua")"
-cat >> "$lua" <<'LUA'
--- nusku-nix Hyper-V test (test/hyperv): a second hyprland.start handler must run as well.
-hl.on("hyprland.start", function()
-    hl.exec_cmd("touch /tmp/nusku-hl-on-probe")
-end)
-LUA
+rm -f /tmp/nusku-local-kdl-probe
+kdl="${XDG_CONFIG_HOME:-$HOME/.config}/nusku/local.kdl"
+mkdir -p "$(dirname "$kdl")"
+cat >> "$kdl" <<'KDL'
+// nusku-nix Hyper-V test (test/hyperv): local.kdl's startup command must run as well.
+spawn-at-startup "touch" "/tmp/nusku-local-kdl-probe"
+KDL
 '@
 if (Test-App 'obsidian') {
     $probes += "`n" + @'
@@ -445,26 +444,25 @@ Start-Sleep -Seconds 5
 Wait-ForSsh 300 $bootId
 Write-Host "    $User@$($script:Ip)"
 
-$hyprUp = $false
+$niriUp = $false
 $deadline = (Get-Date).AddSeconds(180)
 while ((Get-Date) -lt $deadline) {
-    $null = Invoke-Remote ($envPreamble + 'hyprctl version >/dev/null 2>&1 && [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]')
-    if ($script:RemoteExit -eq 0) { $hyprUp = $true; break }
+    $null = Invoke-Remote ($envPreamble + '[ -n "$NIRI_SOCKET" ] && niri msg version >/dev/null 2>&1')
+    if ($script:RemoteExit -eq 0) { $niriUp = $true; break }
     Start-Sleep -Seconds 3
 }
-if (-not $hyprUp) { Write-Host '    Hyprland did not start within 180 s' -ForegroundColor Yellow }
+if (-not $niriUp) { Write-Host '    niri did not start within 180 s' -ForegroundColor Yellow }
 
 $deadline = (Get-Date).AddSeconds(60)
-while ($hyprUp -and (Get-Date) -lt $deadline) {
-    $null = Invoke-Remote ($envPreamble + 'running waybar')
+while ($niriUp -and (Get-Date) -lt $deadline) {
+    $null = Invoke-Remote ($envPreamble + 'shellpid >/dev/null')
     if ($script:RemoteExit -eq 0) { break }
     Start-Sleep -Seconds 2
 }
-# Let the wallpaper come up: hyprpaper, or swaybg after nusku-wallpaper's ~5 s
-# wait for hyprpaper where it cannot run (Hyper-V).
+# Let the wallpaper (swaybg, started by nusku-wallpaper restore) come up.
 $deadline = (Get-Date).AddSeconds(30)
-while ($hyprUp -and (Get-Date) -lt $deadline) {
-    $null = Invoke-Remote ($envPreamble + 'running hyprpaper || running swaybg')
+while ($niriUp -and (Get-Date) -lt $deadline) {
+    $null = Invoke-Remote ($envPreamble + 'running swaybg')
     if ($script:RemoteExit -eq 0) { break }
     Start-Sleep -Seconds 2
 }
@@ -539,59 +537,73 @@ echo "timezone=`$tz locale=`$loc keymap=`$km gpu=`$gpu"
 "@
 
 # --- The session -------------------------------------------------------------
-Invoke-Check 'process Hyprland (autologin)' @'
-hyprctl version >/dev/null 2>&1 || { echo 'no Hyprland instance answers'; exit 1; }
+Invoke-Check 'process niri (autologin)' @'
+niri msg version >/dev/null 2>&1 || { echo 'no niri instance answers'; exit 1; }
 loginctl list-sessions --no-legend | grep -w "$(id -un)" | head -3
-hyprctl instances 2>/dev/null | head -2
+niri msg version 2>/dev/null | head -2
 '@
-Invoke-Check 'process waybar' 'procs waybar | head -1; running waybar'
-Invoke-Check 'swaync (user service)' 's=$(systemctl --user is-active swaync); echo $s; [ "$s" = active ]'
-# hyprpaper needs linux-dmabuf, which Hyprland only offers with a DRM render node; Hyper-V has
-# none, so nusku-wallpaper falls back to swaybg there.
-Invoke-Check 'wallpaper (hyprpaper or swaybg)' @'
-running hyprpaper && { echo 'hyprpaper running'; exit 0; }
-running swaybg && { echo 'not running (no render node); swaybg fallback running'; exit 3; }
-echo 'neither hyprpaper nor swaybg'; exit 1
-'@
-Invoke-Check 'hyprland config is lua' 'r=$(hyprctl eval "return 1"); echo "$r"; [ "$r" = ok ]'
-Invoke-Check 'hyprland config errors' 'e=$(hyprctl configerrors | sed "/^\s*$/d"); [ -z "$e" ] && echo none || { echo "$e"; exit 1; }'
-Invoke-Check 'hyprland binds' 'n=$(hyprctl binds -j | jq length); echo "$n binds"; [ "$n" -ge 62 ]'
-Invoke-Check 'hyprland notifications' @'
-r=$(hyprctl repl 'local t = {} for _, n in ipairs(hl.notification.get()) do t[#t + 1] = n:get_text() end return #t .. ": " .. table.concat(t, " / ")')
-echo "$r"
-[ "$(echo "$r" | tr -d '[:space:]')" = '0:' ] && exit 0
-echo "$r" | grep -qE '\.conf|0\.57' && exit 1
-exit 3
-'@
-# hl.on must keep every hyprland.start handler: autostart.lua's (waybar), nusku/autostart.lua's
-# (Obsidian, when picked) and local.lua's probe all ran.
-Invoke-Check 'hl.on runs every hyprland.start handler' @'
+# These start with the session (graphical-session.target, which niri-session reaches).
+Invoke-Check 'session services (nusku-shell, swayidle, polkit-gnome, upower)' @'
 ok=0
-running waybar && echo 'autostart.lua: waybar' || ok=1
-[ -e /tmp/nusku-hl-on-probe ] && echo 'local.lua: probe ran' || { echo 'local.lua: probe did not run'; ok=1; }
-[ -f ~/.config/nusku/autostart.lua ] && echo 'nusku/autostart.lua present'
+s=$(systemctl is-active upower); echo "upower: $s"; [ "$s" = active ] || ok=1
+for u in nusku-shell swayidle polkit-gnome; do s=$(systemctl --user is-active "$u"); echo "$u: $s"; [ "$s" = active ] || ok=1; done
 exit $ok
 '@
-# settings.json "keymap" is an xkb layout: Hyprland's from the generated nusku/input.lua.
-Invoke-Check 'keyboard: the settings layout in Hyprland (nusku/input.lua)' (@'
-grep -F 'kb_layout = "@KM@"' ~/.config/nusku/input.lua || { echo 'nusku/input.lua lacks kb_layout "@KM@"'; exit 1; }
-r=$(hyprctl getoption input:kb_layout 2>&1 | head -1); echo "hyprctl: $r"
-case "$r" in *@KM@*) exit 0 ;; *) exit 3 ;; esac
+Invoke-Check 'wallpaper (swaybg)' 'procs swaybg | head -1; running swaybg'
+Invoke-Check 'niri config valid (as installed, with local.kdl)' 'niri validate 2>&1 | tail -2; niri validate >/dev/null 2>&1'
+# The repo's script with Rofi stubbed (the installed one puts its own Rofi first on PATH): it
+# reads the installed config (config.kdl and its includes) the way Super + / does.
+Invoke-Check 'keybind menu lists binds' @'
+command -v nusku-menu-keybinds >/dev/null || { echo 'nusku-menu-keybinds not installed'; exit 1; }
+grep -q 'include "binds-nusku.kdl"' ~/.config/niri/config.kdl || { echo 'config.kdl does not include binds-nusku.kdl'; exit 1; }
+stub=$(mktemp -d)
+printf '#!/bin/sh\ncat > %s/listed\nexit 1\n' "$stub" > "$stub/rofi"
+chmod +x "$stub/rofi"
+PATH="$stub:$PATH" bash ~/nusku/scripts/nusku-menu-keybinds
+rc=$?
+grep -E 'Search keybinds +Super \+ /|Go to workspace' "$stub/listed"
+grep -qE 'Search keybinds +Super \+ /' "$stub/listed" && grep -q 'Go to workspace 1' "$stub/listed" || rc=1
+echo "lines=$(wc -l < "$stub/listed")"
+rm -rf "$stub"
+exit $rc
+'@
+# local.kdl (included last) and nusku/apps.kdl (Obsidian, when picked) were both read at start.
+Invoke-Check 'startup commands from config.kdl, apps.kdl and local.kdl all ran' @'
+ok=0
+running swaybg && echo 'config.kdl: nusku-wallpaper restore (swaybg)' || ok=1
+[ -e /tmp/nusku-local-kdl-probe ] && echo 'local.kdl: probe ran' || { echo 'local.kdl: probe did not run'; ok=1; }
+[ -f ~/.config/nusku/apps.kdl ] && echo 'nusku/apps.kdl present'
+exit $ok
+'@
+# settings.json "keymap" is an xkb layout: niri's from the generated nusku/input.kdl.
+Invoke-Check 'keyboard: the settings layout in niri (nusku/input.kdl)' (@'
+grep -F 'layout "@KM@"' ~/.config/nusku/input.kdl || { echo 'nusku/input.kdl lacks layout "@KM@"'; exit 1; }
+r=$(niri msg --json keyboard-layouts 2>&1 | jq -r '.names | join(",")'); echo "niri: $r"
+[ -n "$r" ] && [ "$r" != null ] || exit 3
 '@ -replace '@KM@', $settingsObj.keymap)
 if (Test-App 'sunshine') {
-    # Its unit's graphical-session.target is never reached; nusku/autostart.lua starts it.
+    # Its unit is WantedBy graphical-session.target, which niri-session reaches.
     Invoke-Check 'sunshine: started with the session' 'systemctl --user is-active sunshine'
 }
-Invoke-Check 'session PATH (Hyprland children)' @'
-p=$(procs waybar | head -1); [ -n "$p" ] || { echo 'no waybar to read'; exit 1; }
+if (Test-App 'wayvnc') {
+    # Started with the session, listening on every address (the firewall opens 5900), with keys.
+    Invoke-Check 'wayvnc: running, on 0.0.0.0:5900, with its keys' @'
+s=$(systemctl --user is-active wayvnc); echo "wayvnc: $s"; [ "$s" = active ] || exit 1
+ss -tln | grep -E '0\.0\.0\.0:5900|\*:5900' || { echo 'not listening on 5900'; exit 1; }
+ls ~/.local/state/nusku/wayvnc/ | tr '\n' ' '
+[ -s ~/.local/state/nusku/wayvnc/tls_cert.pem ] && [ -s ~/.local/state/nusku/wayvnc/rsa_key.pem ]
+'@
+}
+Invoke-Check 'session PATH (niri children)' @'
+p=$(shellpid); [ -n "$p" ] || { echo 'no nusku-shell to read'; exit 1; }
 path=$(environ_of "$p" | sed -n 's/^PATH=//p')
 echo "$path"
 case ":$path:" in *":/etc/profiles/per-user/$(id -un)/bin:"*) ;; *) echo 'no per-user profile'; exit 1 ;; esac
 case ":$path:" in *":/run/current-system/sw/bin:"*) ;; *) echo 'no system profile'; exit 1 ;; esac
-for c in nusku-wallpaper nusku-calendar nusku-quick swaync-client hyprctl; do PATH="$path" command -v "$c" >/dev/null || { echo "$c not found on it"; exit 1; }; done
+for c in nusku-wallpaper nusku-calendar nusku-quick qs niri xwayland-satellite; do PATH="$path" command -v "$c" >/dev/null || { echo "$c not found on it"; exit 1; }; done
 '@
 Invoke-Check 'cursor theme' @"
-p=`$(procs waybar | head -1)
+p=`$(shellpid)
 t=`$(environ_of "`$p" | sed -n 's/^XCURSOR_THEME=//p'); echo "XCURSOR_THEME=`$t"
 [ "`$t" = 'catppuccin-mocha-$Accent-cursors' ] || exit 1
 for d in ~/.icons ~/.local/share/icons /etc/profiles/per-user/`$(id -un)/share/icons /run/current-system/sw/share/icons; do
@@ -623,37 +635,12 @@ grep -rqs sddm-background /run/current-system/sw/share/sddm/themes/*/theme.conf*
 '@
 
 # --- Menus ----------------------------------------------------------------------
-Invoke-Check 'bind SUPER + slash' @'
-s=$(hyprctl binds -j | jq -c '.[] | select(.key == "slash") | {modmask, key, description}')
-echo "$s"; echo "$s" | grep -q 'Search keybinds'
-'@
-Invoke-Check 'keybind manifest' @'
-set -o pipefail
-grep -P '\tScreenshot a region\t' "$XDG_RUNTIME_DIR/nusku/keybinds.tsv" | tr '\t' '|'
-'@
-# The repo's script with Rofi stubbed (the installed one puts its own Rofi first on PATH).
-Invoke-Check 'keybind menu lists binds' @'
-command -v nusku-menu-keybinds >/dev/null || { echo 'nusku-menu-keybinds not installed'; exit 1; }
-stub=$(mktemp -d)
-printf '#!/bin/sh\ncat > %s/listed\nexit 1\n' "$stub" > "$stub/rofi"
-chmod +x "$stub/rofi"
-PATH="$stub:$PATH" bash ~/nusku/scripts/nusku-menu-keybinds
-rc=$?
-grep -E 'Screenshot a region +Print|Go to workspace' "$stub/listed"
-grep -qE 'Screenshot a region +Print' "$stub/listed" && grep -q 'Go to workspace' "$stub/listed" || rc=1
-echo "lines=$(wc -l < "$stub/listed")"
-rm -rf "$stub"
-exit $rc
-'@
-Invoke-Check 'dispatch manifest expr' @'
-expr=$(awk -F'\t' '$1 == "bind" && $2 == "ws-go" && $4 == "2" { print $6; exit }' "$XDG_RUNTIME_DIR/nusku/keybinds.tsv")
-echo "expr: $expr"
-[ -n "$expr" ] || exit 1
-hyprctl dispatch "$expr" >/dev/null || exit 1
+Invoke-Check 'niri action from a bind (focus-workspace 2)' @'
+niri msg action focus-workspace 2 >/dev/null || exit 1
 sleep 1
-id=$(hyprctl activeworkspace -j | jq .id); echo "active: $id"
-hyprctl dispatch 'hl.dsp.focus({ workspace = 1 })' >/dev/null
-[ "$id" = 2 ]
+idx=$(niri msg --json workspaces | jq '.[] | select(.is_focused) | .idx'); echo "focused: $idx"
+niri msg action focus-workspace 1 >/dev/null
+[ "$idx" = 2 ]
 '@
 Invoke-Check 'rofi theme (imports through HM links)' @'
 out=$(rofi -theme nusku -dump-theme 2>&1); rc=$?
@@ -663,7 +650,7 @@ echo "$out" | grep -iE 'error|failed' | head -3
 # Rofi lists the first <id>.desktop on XDG_DATA_HOME:XDG_DATA_DIRS (as the session has them);
 # Nusku's NoDisplay copies must come first.
 Invoke-Check 'rofi hides NoDisplay entries' @'
-p=$(procs waybar | head -1)
+p=$(shellpid)
 dirs="$HOME/.local/share:$(environ_of "$p" | sed -n 's/^XDG_DATA_DIRS=//p')"
 ok=0; n=0
 for id in rofi rofi-theme-selector xfce4-about thunar-volman-settings qt5ct qt6ct; do
@@ -682,7 +669,7 @@ $picked = @('firefox', 'chromium', 'brave', 'librewolf' | Where-Object { Test-Ap
 if ($picked.Count -gt 0) {
     $ids = ($picked | ForEach-Object { $browserIds[$_] }) -join ' '
     Invoke-Check 'browser desktop ids (gtk-launch, default)' @"
-p=`$(procs waybar | head -1)
+p=`$(shellpid)
 dirs="`$HOME/.local/share:`$(environ_of "`$p" | sed -n 's/^XDG_DATA_DIRS=//p')"
 ok=0
 for id in $ids; do
@@ -879,7 +866,7 @@ for c in $($cmds -join ' '); do command -v "`$c" >/dev/null || missing="`$missin
 function Save-Screenshot([string]$File) {
     $null = Invoke-Remote ($envPreamble + 'grim /tmp/shot.png')
     if ($script:RemoteExit -ne 0) {
-        Write-Host "    grim failed for $File (is Hyprland rendering?)" -ForegroundColor Yellow
+        Write-Host "    grim failed for $File (is niri rendering?)" -ForegroundColor Yellow
         $script:shotFailed = $true
         return
     }
@@ -890,14 +877,15 @@ function Save-Screenshot([string]$File) {
     }
 }
 function Invoke-Session([string]$Cmd) {
-    # Hyprland's config is Lua, so 'hyprctl dispatch' takes hl.dsp expressions.
-    $null = Invoke-Remote ($envPreamble + "hyprctl dispatch 'hl.dsp.exec_cmd(`"$Cmd`")' >/dev/null")
+    # Started by niri, as a bind would start it (the session's environment).
+    $null = Invoke-Remote ($envPreamble + "niri msg action spawn-sh -- '$Cmd' >/dev/null")
 }
 $script:shotFailed = $false
-$moveCursor = "hyprctl dispatch 'hl.dsp.cursor.move({ x = 512, y = 400 })' >/dev/null"
-$closeAll = 'for p in kitty rofi firefox obsidian thunar nusku-calendar; do pkill -u "$(id -u)" -f "(^|/)\.?$p(-wrapped)?( |$)" 2>/dev/null; done; pkill -u "$(id -u)" -f "[o]bsidian" 2>/dev/null; swaync-client -cp >/dev/null 2>&1; true'
+# niri has no action to move the cursor, so it stays where it is (a no-op kept for the calls below).
+$moveCursor = 'true'
+$closeAll = 'for p in kitty rofi firefox obsidian thunar nusku-calendar; do pkill -u "$(id -u)" -f "(^|/)\.?$p(-wrapped)?( |$)" 2>/dev/null; done; pkill -u "$(id -u)" -f "[o]bsidian" 2>/dev/null; qs -c nusku ipc call panel close >/dev/null 2>&1; true'
 
-if ($hyprUp) {
+if ($niriUp) {
     Write-Step 'Taking screenshots'
     # Park the cursor off the bar (no tooltips).
     $null = Invoke-Remote ($envPreamble + $moveCursor)
@@ -916,17 +904,20 @@ if ($hyprUp) {
     Save-Screenshot 'rofi.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
-    # The keybind menu (SUPER + /), started the way its bind starts it.
+    # The keybind menu (Super + /), started the way its bind starts it.
     Invoke-Session 'nusku-menu-keybinds'
     Start-Sleep -Seconds 4
     Save-Screenshot 'keybinds.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
-    # Quick settings (SUPER + N / the bar pill).
-    $null = Invoke-Remote ($envPreamble + 'swaync-client -t -sw >/dev/null')
+    # A notification pop-up, then quick settings (Super + N / the bar pill) with it in the list.
+    $null = Invoke-Remote ($envPreamble + "notify-send -a Nusku 'Nusku test' 'A notification from the Hyper-V loop' >/dev/null")
+    Start-Sleep -Seconds 2
+    Save-Screenshot 'notification.png'
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call panel open >/dev/null')
     Start-Sleep -Seconds 3
     Save-Screenshot 'quick-settings.png'
-    $null = Invoke-Remote ($envPreamble + 'swaync-client -cp >/dev/null')
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call panel close >/dev/null')
 
     # The clock's drop-down calendar: it re-executes itself with gtk4-layer-shell preloaded.
     Invoke-Session 'nusku-calendar'
@@ -936,7 +927,7 @@ p=$(pgrep -u "$(id -u)" -f 'nusku-calendar' | head -1)
 [ -n "$p" ] || { echo 'nusku-calendar is not running'; exit 1; }
 l=$(environ_of "$p" | sed -n 's/^LD_PRELOAD=//p'); echo "LD_PRELOAD=$l"
 case "$l" in *libgtk4-layer-shell.so*) ;; *) exit 1 ;; esac
-hyprctl layers -j | jq -r '.. | .namespace? // empty' | sort -u | tr '\n' ' '
+niri msg --json layers | jq -r '.[].namespace' | sort -u | tr '\n' ' '
 '@
     $null = Invoke-Remote ($envPreamble + $moveCursor)
     Save-Screenshot 'calendar.png'
@@ -974,7 +965,7 @@ jq -e '.addons[] | select(.id == "FirefoxColor@mozilla.com") | .active' "$e" >/d
         $null = Invoke-Remote ($envPreamble + $closeAll)
     }
 } else {
-    Write-Host '    No Hyprland session: no screenshots.' -ForegroundColor Yellow
+    Write-Host '    No niri session: no screenshots.' -ForegroundColor Yellow
     $script:shotFailed = $true
 }
 

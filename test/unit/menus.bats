@@ -1,5 +1,5 @@
 # rofi menus (power, keybinds, clipboard, the quick-settings pickers) and nusku-browser, with
-# stub rofi / nmcli / bluetoothctl / hyprctl / notify-send / ... first on PATH. Ported from
+# stub rofi / nmcli / bluetoothctl / niri / notify-send / ... first on PATH. Ported from
 # nusku-arch test/unit/menus.bats (the clipboard menu and nusku-browser had no tests there).
 
 setup() {
@@ -137,12 +137,12 @@ STUB
 # --- nusku-menu-power --------------------------------------------------------------------
 
 session_stubs() {
-    export HYPR_ARGS="$BATS_TEST_TMPDIR/hypr-args"
-    : >"$HYPR_ARGS"
-    printf '#!/usr/bin/env bash\necho "$*" >>"$HYPR_ARGS"\n' >"$BATS_TEST_TMPDIR/bin/hyprctl"
+    export NIRI_ARGS="$BATS_TEST_TMPDIR/niri-args"
+    : >"$NIRI_ARGS"
+    printf '#!/usr/bin/env bash\necho "$*" >>"$NIRI_ARGS"\n' >"$BATS_TEST_TMPDIR/bin/niri"
     printf '#!/usr/bin/env bash\necho "systemctl $*" >>"$CALLS"\n' >"$BATS_TEST_TMPDIR/bin/systemctl"
     printf '#!/usr/bin/env bash\necho "hyprlock" >>"$CALLS"\n' >"$BATS_TEST_TMPDIR/bin/hyprlock"
-    chmod +x "$BATS_TEST_TMPDIR/bin/hyprctl" "$BATS_TEST_TMPDIR/bin/systemctl" "$BATS_TEST_TMPDIR/bin/hyprlock"
+    chmod +x "$BATS_TEST_TMPDIR/bin/niri" "$BATS_TEST_TMPDIR/bin/systemctl" "$BATS_TEST_TMPDIR/bin/hyprlock"
 }
 
 @test "power menu sizes the list with -theme-str, not the removed -lines option" {
@@ -187,83 +187,149 @@ session_stubs() {
     picks Suspend
     run scripts/nusku-menu-power
     [ "$(cat "$CALLS")" = "$(printf 'hyprlock\nsystemctl suspend')" ]
-    [ "$(cat "$HYPR_ARGS")" = 'dispatch hl.dsp.exit()' ]
+    [ "$(cat "$NIRI_ARGS")" = 'msg action quit --skip-confirmation' ]
     [ "$(grep -c 'lines: 2' "$ROFI_ARGS")" -eq 0 ]
 }
 
 # --- nusku-menu-keybinds -----------------------------------------------------------------
 
+# A niri config like the installed one: config.kdl includes a bind layout, apps.kdl and an
+# optional local.kdl, relative to itself. NUSKU_NIRI_CONFIG points the menu at it.
 kb_setup() {
     session_stubs
-    export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
-    mkdir -p "$XDG_RUNTIME_DIR/nusku"
-    {
-        printf 'bind\t\tPrint\tScreenshot a region\t1\thl.dsp.exec_cmd("hyprshot -m region -o ~/Pictures/Screenshots")\n'
-        printf 'bind\t\tSUPER + mouse:272\tDrag to move window\t0\thl.dsp.window.drag()\n'
-        for i in 1 2 3; do
-            printf 'bind\tws-go\tSUPER + %s\t%s\t1\thl.dsp.focus({ workspace = %s })\n' "$i" "$i" "$i"
-        done
-        printf 'group\tws-go\tSUPER + 1…0\tGo to workspace\t1\tWorkspace\n'
-        printf 'bind\t\tSUPER + Q\tClose window\t1\thl.dsp.window.close()\n'
-        printf 'bind\t\tSUPER + slash\tSearch keybinds\t1\thl.dsp.exec_cmd("x")\n'
-        printf 'bind\t\tXF86AudioMute\tMute\t1\thl.dsp.exec_cmd("m")\n'
-    } >"$XDG_RUNTIME_DIR/nusku/keybinds.tsv"
+    local cfg="$BATS_TEST_TMPDIR/cfg"
+    mkdir -p "$cfg/niri" "$cfg/nusku"
+    export NUSKU_NIRI_CONFIG="$cfg/niri/config.kdl"
+    cat >"$NUSKU_NIRI_CONFIG" <<'KDL'
+layout {
+    border { width 2; }
+}
+window-rule {
+    match app-id=r#"^(kitty|foot)$"#
+    open-floating true
+}
+include "binds.kdl"
+include "../nusku/apps.kdl"
+include optional=true "../nusku/local.kdl"
+KDL
+    cat >"$cfg/niri/binds.kdl" <<'KDL'
+// Nusku binds
+binds {
+    Mod+Return hotkey-overlay-title="Open terminal" { spawn "kitty"; }
+    Mod+Q repeat=false hotkey-overlay-title="Close window" { close-window; }
+    Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "nusku-menu-keybinds"; }
+    Mod+Ctrl+Left hotkey-overlay-title="Narrower" { set-column-width "-5%"; }
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+0 { focus-workspace 10; }
+    Mod+Shift+1 { move-column-to-workspace 1; }
+    Mod+Shift+0 { move-column-to-workspace 10; }
+    Mod+WheelScrollDown cooldown-ms=150 hotkey-overlay-title="Next workspace" { focus-workspace-down; }
+    XF86AudioMute allow-when-locked=true hotkey-overlay-title="Mute" { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
+    Mod+Shift+E { quit skip-confirmation=true; }
+}
+KDL
+    cat >"$cfg/nusku/apps.kdl" <<'KDL'
+binds {
+    Super+Alt+E hotkey-overlay-title="Yazi \"files\"" { spawn "kitty" "-e" "yazi"; }
+}
+spawn-at-startup "nusku-obsidian-theme"
+KDL
 }
 
-@test "keybind menu lists description and keys" {
+# The menu lines (rofi's stdin), without the padding.
+listed() { sed -E 's/  +/|/' "$ROFI_ARGS.stdin"; }
+
+@test "keybind menu lists description and keys, in config order, with includes" {
     kb_setup
     run scripts/nusku-menu-keybinds
     [ "$status" -eq 0 ]
-    grep -E 'Screenshot a region +Print' "$ROFI_ARGS.stdin"
-    grep -E 'Search keybinds +SUPER \+ /$' "$ROFI_ARGS.stdin"
-    grep -E 'Drag to move window +SUPER \+ Left drag$' "$ROFI_ARGS.stdin"
-    grep -E 'Mute +Mute key$' "$ROFI_ARGS.stdin"
-    grep -qE 'Close window {4,}SUPER [+] Q' "$ROFI_ARGS.stdin"
-    grep -qF -- '-p Keybinds' "$ROFI_ARGS"
-    grep -qF -- '-format i' "$ROFI_ARGS"
     grep -qF -- '-theme nusku' "$ROFI_ARGS"
+    [ "$(listed | head -3)" = "$(printf 'Open terminal|Super + Enter\nClose window|Super + Q\nSearch keybinds|Super + /')" ]
+    listed | grep -qx 'Narrower|Super + Ctrl + Left'
+    listed | grep -qx 'Mute|Mute key'
+    listed | grep -qx 'Quit|Super + Shift + E'
+    listed | grep -qx 'Yazi "files"|Super + Alt + E'
+    [ ! -s "$NIRI_ARGS" ]
 }
 
-@test "keybind menu runs the picked bind" {
+@test "keybind menu collapses workspace binds into one line per group" {
+    kb_setup
+    run scripts/nusku-menu-keybinds
+    listed | grep -qx 'Go to workspace 1–10|Super + 1…0'
+    listed | grep -qx 'Move window to workspace 1–10|Super + Shift + 1…0'
+    ! listed | grep -q 'Focus workspace' || false
+}
+
+@test "keybind menu runs the picked bind through niri msg action" {
     kb_setup
     picks 0
     run scripts/nusku-menu-keybinds
     [ "$status" -eq 0 ]
-    [ "$(cat "$HYPR_ARGS")" = 'dispatch hl.dsp.exec_cmd("hyprshot -m region -o ~/Pictures/Screenshots")' ]
+    [ "$(cat "$NIRI_ARGS")" = 'msg action spawn -- kitty' ]
 }
 
-@test "keybind menu does not run a mouse bind" {
+@test "keybind menu passes action arguments and properties" {
     kb_setup
-    picks 1
+    picks 3
     run scripts/nusku-menu-keybinds
-    [ "$status" -eq 0 ]
-    [ ! -s "$HYPR_ARGS" ]
+    picks 7
+    run scripts/nusku-menu-keybinds
+    picks 8
+    run scripts/nusku-menu-keybinds
+    [ "$(cat "$NIRI_ARGS")" = "$(printf '%s\n' 'msg action set-column-width -- -5%' \
+        'msg action spawn-sh -- wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle' \
+        'msg action quit --skip-confirmation')" ]
 }
 
-@test "keybind menu collapses workspace binds" {
+@test "keybind menu: a workspace group opens a second list" {
     kb_setup
-    picks 2 2
+    picks 4 2
     run scripts/nusku-menu-keybinds
     [ "$status" -eq 0 ]
-    [ "$(grep -c 'Go to workspace' "$ROFI_ARGS.stdin")" -eq 1 ]
-    [ "$(wc -l <"$ROFI_ARGS.stdin")" -ge 4 ]
-    [ "$(cat "$HYPR_ARGS")" = 'dispatch hl.dsp.focus({ workspace = 3 })' ]
     grep -qF -- '-p Workspace' "$ROFI_ARGS"
+    [ "$(cat "$NIRI_ARGS")" = 'msg action focus-workspace -- 10' ]
+}
+
+@test "keybind menu does not run a mouse wheel bind" {
+    kb_setup
+    picks 6
+    run scripts/nusku-menu-keybinds
+    [ "$status" -eq 0 ]
+    listed | sed -n 7p | grep -q 'Next workspace'
+    [ ! -s "$NIRI_ARGS" ]
+}
+
+@test "keybind menu: local.kdl replaces a key, and title=null hides it" {
+    kb_setup
+    cat >"$BATS_TEST_TMPDIR/cfg/nusku/local.kdl" <<'KDL'
+binds {
+    Mod+Return hotkey-overlay-title="My terminal" { spawn "foot"; }
+    Mod+Q hotkey-overlay-title=null { close-window; }
+    Mod+D { spawn "discord"; }
+}
+KDL
+    picks 0
+    run scripts/nusku-menu-keybinds
+    [ "$(listed | head -1)" = 'My terminal|Super + Enter' ]
+    ! listed | grep -q 'Close window' || false
+    listed | grep -qx 'Run discord|Super + D'
+    [ "$(cat "$NIRI_ARGS")" = 'msg action spawn -- foot' ]
 }
 
 @test "keybind menu Esc runs nothing" {
     kb_setup
     run scripts/nusku-menu-keybinds
     [ "$status" -eq 0 ]
-    [ ! -s "$HYPR_ARGS" ]
+    [ ! -s "$NIRI_ARGS" ]
 }
 
-@test "keybind menu without a manifest says so" {
+@test "keybind menu without a niri config says so" {
     kb_setup
-    rm "$XDG_RUNTIME_DIR/nusku/keybinds.tsv"
+    export NUSKU_NIRI_CONFIG="$BATS_TEST_TMPDIR/nope/config.kdl"
     run scripts/nusku-menu-keybinds
     [ "$status" -eq 0 ]
-    grep -qF 'Keybind list not ready; reload Hyprland' "$NOTIFY_ARGS"
+    grep -q 'No niri config' "$NOTIFY_ARGS"
     [ ! -s "$ROFI_ARGS" ]
 }
 

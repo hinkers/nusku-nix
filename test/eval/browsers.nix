@@ -33,7 +33,7 @@ let
   themer = c: lib.findFirst (p: (p.pname or p.name or "") == "nusku-obsidian-theme") null
     (hmOf c).home.packages;
   activation = c: (hmOf c).home.activation.nuskuObsidianTheme or null;
-  autostart = c: (hmOf c).xdg.configFile."nusku/autostart.lua".text or "";
+  autostart = c: (hmOf c).xdg.configFile."nusku/apps.kdl".text or "";
   obsidianOnly = pick [ "obsidian" ];
   noCtx = builtins.unsafeDiscardStringContext; # hasInfix can't take store-path strings
 in
@@ -95,13 +95,11 @@ in
     let a = activation full; in
     a != null && builtins.elem "linkGeneration" a.after && builtins.elem "obsidian" a.after
     && lib.hasInfix (noCtx "${themer full}/bin/nusku-obsidian-theme || true") a.data;
-  "obsidian: themed at each login (Hyprland autostart, loaded by hyprland.lua)" =
-    lib.hasInfix ''hl.exec_cmd("nusku-obsidian-theme")'' (autostart full)
-    && lib.hasInfix "hyprland.start" (autostart full)
-    && lib.hasInfix ''require_if_present(paths.nusku .. "/autostart")''
-      (builtins.readFile ../../config/hypr/hyprland.lua);
+  "obsidian: themed at each login (niri spawn-at-startup in apps.kdl, included by config.kdl)" =
+    lib.hasInfix ''spawn-at-startup "nusku-obsidian-theme"'' (autostart full)
+    && lib.hasInfix ''include "../nusku/apps.kdl"'' (builtins.readFile ../../config/niri/config.kdl);
   "obsidian not picked: no themer, activation step or autostart" =
-    builtins.all (c: themer c == null && activation c == null && autostart c == "")
+    builtins.all (c: themer c == null && activation c == null && !(lib.hasInfix "nusku-obsidian-theme" (autostart c)))
       [ none mauve chromium ]
     && themer obsidianOnly != null && activation obsidianOnly != null;
   "obsidian: installed once, in the user's profile" =
