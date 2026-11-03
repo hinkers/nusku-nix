@@ -51,7 +51,10 @@ Scope {
         // Only the panel itself takes clicks; the rest of the strip falls through to the catcher.
         mask: Region { item: drawer.area }
 
-        readonly property real fullHeight: Math.min(height - Theme.barHeight - Theme.frame - Theme.frameRadius, body.implicitHeight + 32)
+        // The Wi-Fi and Bluetooth pages get a fixed height (their lists scroll).
+        readonly property real maxHeight: height - Theme.barHeight - Theme.frame - Theme.frameRadius
+        property real fullHeight: Math.min(maxHeight, PanelState.page === "main" ? body.implicitHeight + 32 : 520)
+        Behavior on fullHeight { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         PwObjectTracker {
             objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
@@ -72,8 +75,22 @@ Scope {
                 focus: true
                 Keys.onEscapePressed: PanelState.open = false
 
+                WifiPage {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    anchors.topMargin: 12
+                    visible: PanelState.page === "wifi"
+                }
+                BluetoothPage {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    anchors.topMargin: 12
+                    visible: PanelState.page === "bluetooth"
+                }
+
                 ColumnLayout {
                     id: body
+                    visible: PanelState.page === "main"
                     anchors.fill: parent
                     anchors.margins: 16
                     anchors.topMargin: 12
@@ -93,7 +110,7 @@ Scope {
                             onToggled: Quickshell.execDetached(["nusku-quick", "toggle", "wifi"])
                             tooltip: (active ? "Turn Wi-Fi off" : "Turn Wi-Fi on")
                             pickTooltip: "Choose a Wi-Fi network"
-                            onPick: root.run(["nusku-menu-wifi"])
+                            onPick: PanelState.page = "wifi"
                         }
                         RadioButton {
                             Layout.fillWidth: true
@@ -105,7 +122,7 @@ Scope {
                             onToggled: Quickshell.execDetached(["nusku-quick", "toggle", "bluetooth"])
                             tooltip: (active ? "Turn Bluetooth off" : "Turn Bluetooth on")
                             pickTooltip: "Connect a Bluetooth device"
-                            onPick: root.run(["nusku-menu-bluetooth"])
+                            onPick: PanelState.page = "bluetooth"
                         }
                     }
 

@@ -22,9 +22,6 @@
 .config/niri/
 .config/hypr/hyprlock.conf
 .config/quickshell/nusku/
-.config/rofi/catppuccin-mocha.rasi
-.config/rofi/config.rasi
-.config/rofi/nusku.rasi
 .config/nusku/gpu.kdl
 .config/nusku/input.kdl
 .config/nusku/apps.kdl

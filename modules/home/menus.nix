@@ -1,23 +1,17 @@
-# Rofi and the menus: nusku-arch's rofi config and `nusku` theme (Catppuccin Mocha + the accent
-# from ~/.config/nusku/theme/colors.rasi), the keybind and clipboard menus, nusku-browser
-# (Super + B) and the launcher clean-up. The wallpaper menu is in niri.nix; the Wi-Fi and
-# Bluetooth pickers in panels.nix. Binds (config/niri/binds-*.kdl) call the scripts by name; the
-# app launcher and the power menu are the Nusku shell's. niri's own keybind list is
-# Super + Shift + /.
+# The menus' helpers and the launcher clean-up. The menus themselves are the Nusku shell's
+# (config/quickshell/nusku/menus: launcher, clipboard, wallpaper, keybinds, power, calendar);
+# this packages what they call by name: nusku-menu-keybinds (the keybind search reads niri's
+# config through it) and nusku-browser (Super + B). niri's own keybind list is Super + Shift + /.
 { osConfig, lib, pkgs, ... }:
 let
   scripts = import ../../lib/scripts.nix { inherit pkgs lib; };
   niri = osConfig.programs.niri.package; # the same niri the session runs
 
   menuScripts = [
-    # Super + /: reads the niri config it lists (config.kdl and its includes).
+    # Super + /: lists the binds in niri's config (config.kdl and its includes) and runs them.
     (scripts.mkScript {
       name = "nusku-menu-keybinds";
-      deps = with pkgs; [ coreutils rofi libnotify niri ];
-    })
-    (scripts.mkScript {
-      name = "nusku-menu-clipboard";
-      deps = with pkgs; [ cliphist rofi wl-clipboard ];
+      deps = with pkgs; [ coreutils niri ];
     })
     # gtk-launch (gtk3) starts the browser's desktop entry; xdg-mime reads the default.
     (scripts.mkScript {
@@ -33,25 +27,18 @@ let
   hidden = [
     # Developer and system tools
     "assistant" "designer" "linguist" "qdbusviewer" "qv4l2" "qvidcap" "lstopo" "xgps"
-    "xgpsspeed" "xfce4-about" "rofi" "rofi-theme-selector" "blueman-adapters"
-    "thunar-volman-settings"
+    "xgpsspeed" "xfce4-about" "blueman-adapters" "thunar-volman-settings"
     # Theme tools: Nusku sets these up.
     "qt5ct" "qt6ct" "kvantummanager"
   ];
 in
 {
-  # Not HM's programs.rofi: it would write its own config.rasi (and catppuccin/nix's rofi theme,
-  # which has no accent). The menus ask for `-theme nusku`.
-  xdg.configFile = {
-    "rofi/config.rasi".source = ../../config/rofi/config.rasi;
-    "rofi/nusku.rasi".source = ../../config/rofi/nusku.rasi;
-    "rofi/catppuccin-mocha.rasi".source = ../../config/rofi/catppuccin-mocha.rasi;
-  };
-
   xdg.desktopEntries = lib.genAttrs hidden (id: {
     name = id;
     noDisplay = true;
   });
 
-  home.packages = [ pkgs.rofi ] ++ menuScripts;
+  # cliphist and wl-clipboard: the shell's clipboard menu (the history is kept by the niri
+  # session's `wl-paste --watch cliphist store`, config/niri/config.kdl).
+  home.packages = menuScripts ++ (with pkgs; [ cliphist wl-clipboard ]);
 }

@@ -43,10 +43,6 @@ let
     name = "nusku-wallpaper";
     deps = with pkgs; [ coreutils procps util-linux swaybg niri ];
   };
-  nusku-menu-wallpaper = scripts.mkScript {
-    name = "nusku-menu-wallpaper";
-    deps = with pkgs; [ coreutils jq rofi niri nusku-wallpaper ];
-  };
 
   # The user's own files: written once from these templates, never touched again.
   localKdl = pkgs.writeText "local.kdl" ''
@@ -112,7 +108,7 @@ in
     jq
     imagemagick
     xdg-user-dirs
-  ]) ++ [ nusku-wallpaper nusku-menu-wallpaper ];
+  ]) ++ [ nusku-wallpaper ];
 
   # Started with the session (graphical-session.target, which niri-session reaches).
   services.polkit-gnome.enable = true;

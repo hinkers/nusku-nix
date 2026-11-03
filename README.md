@@ -92,7 +92,7 @@ A name that isn't in nixpkgs stops the rebuild and says which one. The installer
 about these and keeps them when you change your settings. To offer an app on every machine (in
 the installer's list), add it to `lib/catalogue.nix` and `modules/nixos/apps.nix` instead.
 
-The wallpaper picker (Super + Alt + W) is instant and isn't part of the build; your choice is kept.
+The wallpaper picker (Super + W) is instant and isn't part of the build; your choice is kept.
 
 ## The desktop
 
@@ -117,24 +117,29 @@ the screen (windows sit inside it), and every menu grows out of the frame:
 - The bar: workspaces, the window title, the clock, the tray, the battery and one pill for
   network, Bluetooth and notifications.
 - The pill (or Super + N) opens quick settings, out of the top-right corner: Wi-Fi and
-  Bluetooth (› picks a network or a device), Do Not Disturb, night light, airplane mode, keep
-  awake, mute, screenshot, power, brightness and volume, power profiles, what's playing, and
-  the notifications. Right-click the pill's network or Bluetooth icon for its picker, the bell
-  for Do Not Disturb.
+  Bluetooth, Do Not Disturb, night light, airplane mode, keep awake, mute, screenshot, power,
+  brightness and volume, power profiles, what's playing, and the notifications. The › next to
+  Wi-Fi or Bluetooth (or right-clicking its icon on the bar) shows its page: networks to join
+  (a new one asks for its password there) or devices to connect and pair. Right-click the
+  bell for Do Not Disturb.
 - New notifications come out of the same corner; critical ones stay until you close them.
 - The clock opens the calendar, down from the top: days with events have a dot, pick a day to
   see them. Events come from GNOME Calendar's accounts (Online Accounts: Google, Nextcloud);
   pick one, or Open Calendar, to see it there. Arrows, PgUp/PgDn and Home move about.
-- Super + Space opens the app launcher, up from the bottom: type, arrows, Enter.
+- Super + Space opens the app launcher, up from the bottom: type, arrows, Enter. The same
+  place has clipboard history (Super + V: Enter copies an entry back, Delete removes it), the
+  wallpaper picker (Super + W) and the keybind search (Super + /: Enter runs the bind).
 - Super + Escape (or the power button in quick settings) opens the power menu, in from the
   right: lock, log out, suspend, reboot, shut down. Log out, reboot and shut down want a
   second click.
+- Changing the volume, muting, or the brightness keys show a gauge in from the right edge.
 
 A click anywhere else, or Esc, closes a menu; one is open at a time.
 
 It runs as the `nusku-shell` user service (`systemctl --user restart nusku-shell` if it ever
-needs a kick). Scripts can drive it: `qs -c nusku ipc call panel|calendar|launcher|session
-toggle`.
+needs a kick). Scripts can drive it: `qs -c nusku ipc call MENU toggle`, where MENU is panel,
+calendar, launcher, clipboard, wallpaper, keybinds or session (`qs -c nusku ipc show` lists
+everything).
 
 niri's own default binds, with Nusku's apps and menus added, are in
 `config/niri/binds-niri.kdl`. To use them instead, change `include "binds-nusku.kdl"` to

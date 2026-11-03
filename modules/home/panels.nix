@@ -1,6 +1,6 @@
 # The bar and panels: the Nusku shell (Quickshell, config/quickshell/nusku: the bar, the quick
 # settings panel and the notification pop-ups; it is also the notification server), the
-# quick-settings scripts and rofi pickers it calls, and the calendar menu's event helper. The
+# quick-settings script it calls, and the calendar menu's event helper. The
 # shell is the nusku-shell user service, started with the session.
 { config, lib, pkgs, ... }:
 let
@@ -14,14 +14,6 @@ let
       networkmanager bluez quickshell wireplumber power-profiles-daemon
       wlsunset # systemctl (caffeine: the swayidle unit) comes from the system
     ];
-  };
-  nusku-menu-wifi = scripts.mkScript {
-    name = "nusku-menu-wifi";
-    deps = with pkgs; [ coreutils gnused gawk networkmanager rofi libnotify kitty ];
-  };
-  nusku-menu-bluetooth = scripts.mkScript {
-    name = "nusku-menu-bluetooth";
-    deps = with pkgs; [ coreutils gnused gnugrep gawk bluez util-linux rofi libnotify blueman ];
   };
   # The calendar menu's events (scripts/nusku-calendar-events): Python + PyGObject with the GI
   # typelibs it imports (EDataServer, ECal, ICalGLib) on GI_TYPELIB_PATH, no GUI.
@@ -82,6 +74,6 @@ in
   home.packages = (with pkgs; [
     quickshell # qs: `qs -c nusku ipc call panel toggle` (Super + N), nusku-quick's dnd
     brightnessctl # the panel's brightness slider
-    networkmanagerapplet # nm-connection-editor (floated by a niri window rule)
-  ]) ++ [ nusku-quick nusku-menu-wifi nusku-menu-bluetooth nusku-calendar-events ];
+    networkmanagerapplet # nm-connection-editor: the Wi-Fi page's "Network settings" (floats)
+  ]) ++ [ nusku-quick nusku-calendar-events ];
 }

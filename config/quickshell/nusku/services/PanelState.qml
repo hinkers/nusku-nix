@@ -10,12 +10,22 @@ import Quickshell.Io
 Singleton {
     id: root
     property bool open: false
+    // Which page: the toggles ("main"), or the Wi-Fi or Bluetooth list.
+    property string page: "main"
+    // Back to the toggles once it is all the way in (not while it slides away).
+    onProgressChanged: if (progress === 0) page = "main"
     property ShellScreen screen: Quickshell.screens[0] ?? null
     property real progress: open ? 1 : 0
     Behavior on progress {
         NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
     }
 
+    // Open on `s` at `p` (the bar's right-click on the network or Bluetooth icon).
+    function openPage(s, p) {
+        screen = s;
+        open = true;
+        page = p;
+    }
     function toggleOn(s) {
         if (open && screen === s) { open = false; return; }
         screen = s;
@@ -48,5 +58,7 @@ Singleton {
         function toggle(): void { root.toggle(); }
         function open(): void { if (!root.open) root.openOnFocused(); }
         function close(): void { root.open = false; }
+        function wifi(): void { if (!root.open) root.openOnFocused(); root.page = "wifi"; }
+        function bluetooth(): void { if (!root.open) root.openOnFocused(); root.page = "bluetooth"; }
     }
 }

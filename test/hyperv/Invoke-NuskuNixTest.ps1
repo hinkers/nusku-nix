@@ -551,21 +551,12 @@ exit $ok
 '@
 Invoke-Check 'wallpaper (swaybg)' 'procs swaybg | head -1; running swaybg'
 Invoke-Check 'niri config valid (as installed, with local.kdl)' 'niri validate 2>&1 | tail -2; niri validate >/dev/null 2>&1'
-# The repo's script with Rofi stubbed (the installed one puts its own Rofi first on PATH): it
-# reads the installed config (config.kdl and its includes) the way Super + / does.
-Invoke-Check 'keybind menu lists binds' @'
-command -v nusku-menu-keybinds >/dev/null || { echo 'nusku-menu-keybinds not installed'; exit 1; }
+# The keybind search's lister reads the installed config (config.kdl and its includes).
+Invoke-Check 'keybind search lists binds' @'
 grep -q 'include "binds-nusku.kdl"' ~/.config/niri/config.kdl || { echo 'config.kdl does not include binds-nusku.kdl'; exit 1; }
-stub=$(mktemp -d)
-printf '#!/bin/sh\ncat > %s/listed\nexit 1\n' "$stub" > "$stub/rofi"
-chmod +x "$stub/rofi"
-PATH="$stub:$PATH" bash ~/nusku/scripts/nusku-menu-keybinds
-rc=$?
-grep -E 'Search keybinds +Super \+ /|Go to workspace' "$stub/listed"
-grep -qE 'Search keybinds +Super \+ /' "$stub/listed" && grep -q 'Go to workspace 1' "$stub/listed" || rc=1
-echo "lines=$(wc -l < "$stub/listed")"
-rm -rf "$stub"
-exit $rc
+out=$(nusku-menu-keybinds --list) || exit 1
+echo "$(echo "$out" | wc -l) binds"
+echo "$out" | grep -P '\tSearch keybinds\tSuper \+ /\t1$' && echo "$out" | grep -P '\tFocus workspace 1\tSuper \+ 1\t1$'
 '@
 # local.kdl (included last) and nusku/apps.kdl (Obsidian, when picked) were both read at start.
 Invoke-Check 'startup commands from config.kdl, apps.kdl and local.kdl all ran' @'
@@ -642,18 +633,13 @@ idx=$(niri msg --json workspaces | jq '.[] | select(.is_focused) | .idx'); echo 
 niri msg action focus-workspace 1 >/dev/null
 [ "$idx" = 2 ]
 '@
-Invoke-Check 'rofi theme (imports through HM links)' @'
-out=$(rofi -theme nusku -dump-theme 2>&1); rc=$?
-echo "$out" | grep -iE 'error|failed' | head -3
-[ $rc -eq 0 ] && ! echo "$out" | grep -qiE 'error|failed' && echo "$(echo "$out" | wc -l) theme lines"
-'@
-# Rofi lists the first <id>.desktop on XDG_DATA_HOME:XDG_DATA_DIRS (as the session has them);
-# Nusku's NoDisplay copies must come first.
-Invoke-Check 'rofi hides NoDisplay entries' @'
+# The launcher (Quickshell's DesktopEntries) takes the first <id>.desktop on
+# XDG_DATA_HOME:XDG_DATA_DIRS (as the session has them); Nusku's NoDisplay copies must come first.
+Invoke-Check 'launcher hides NoDisplay entries' @'
 p=$(shellpid)
 dirs="$HOME/.local/share:$(environ_of "$p" | sed -n 's/^XDG_DATA_DIRS=//p')"
 ok=0; n=0
-for id in rofi rofi-theme-selector xfce4-about thunar-volman-settings qt5ct qt6ct; do
+for id in xfce4-about thunar-volman-settings qt5ct qt6ct kvantummanager; do
     first=""
     IFS=:; for d in $dirs; do [ -f "$d/applications/$id.desktop" ] && { first="$d/applications/$id.desktop"; break; }; done; unset IFS
     [ -n "$first" ] || continue
@@ -883,7 +869,7 @@ function Invoke-Session([string]$Cmd) {
 $script:shotFailed = $false
 # niri has no action to move the cursor, so it stays where it is (a no-op kept for the calls below).
 $moveCursor = 'true'
-$closeAll = 'for p in kitty rofi firefox obsidian thunar; do pkill -u "$(id -u)" -f "(^|/)\.?$p(-wrapped)?( |$)" 2>/dev/null; done; pkill -u "$(id -u)" -f "[o]bsidian" 2>/dev/null; for m in panel calendar launcher session; do qs -c nusku ipc call $m close >/dev/null 2>&1; done; true'
+$closeAll = 'for p in kitty firefox obsidian thunar; do pkill -u "$(id -u)" -f "(^|/)\.?$p(-wrapped)?( |$)" 2>/dev/null; done; pkill -u "$(id -u)" -f "[o]bsidian" 2>/dev/null; for m in panel calendar launcher session clipboard wallpaper keybinds; do qs -c nusku ipc call $m close >/dev/null 2>&1; done; true'
 
 if ($niriUp) {
     Write-Step 'Taking screenshots'
@@ -905,10 +891,14 @@ if ($niriUp) {
     Save-Screenshot 'launcher.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
-    # The keybind menu (Super + /), started the way its bind starts it.
-    Invoke-Session 'nusku-menu-keybinds'
-    Start-Sleep -Seconds 4
+    # The keybind search (Super + /) and the wallpaper picker (Super + W), up from the bottom.
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call keybinds open >/dev/null')
+    Start-Sleep -Seconds 3
     Save-Screenshot 'keybinds.png'
+    $null = Invoke-Remote ($envPreamble + $closeAll)
+    $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call wallpaper open >/dev/null')
+    Start-Sleep -Seconds 4
+    Save-Screenshot 'wallpaper.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
     # A notification pop-up, then quick settings (Super + N / the bar pill) with it in the list.

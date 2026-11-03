@@ -1,5 +1,5 @@
 // One pill for network, Bluetooth and notifications: a click opens quick settings. Right-click
-// network or Bluetooth for their pickers, the bell for Do Not Disturb.
+// network or Bluetooth for their page in it, the bell for Do Not Disturb.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -46,12 +46,12 @@ Rectangle {
         Glyph {
             text: Net.netIcon
             off: !Net.online
-            onRight: () => Quickshell.execDetached(["nusku-menu-wifi"])
+            onRight: () => PanelState.openPage(pill.screen, "wifi")
         }
         Glyph {
             text: Net.btIcon
             off: !Net.btOn
-            onRight: () => Quickshell.execDetached(["nusku-menu-bluetooth"])
+            onRight: () => PanelState.openPage(pill.screen, "bluetooth")
         }
         Glyph {
             text: Notifs.dnd ? "󰂛" : Notifs.count > 0 ? "󱅫" : "󰂜"

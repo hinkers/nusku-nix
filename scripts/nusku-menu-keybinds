@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# nusku-menu-keybinds: searchable list of every niri keybind (Super + /). Picking a bind runs it
-# (through `niri msg action`); workspace binds collapse to one line each, with a second list.
+# nusku-menu-keybinds: every niri keybind, for the Nusku shell's keybind search (Super + /,
+# config/quickshell/nusku/menus/Keybinds.qml).
+#   nusku-menu-keybinds --list     INDEX<TAB>DESCRIPTION<TAB>KEYS<TAB>RUNNABLE, one bind a line
+#   nusku-menu-keybinds --run N    run bind N (from --list) through `niri msg action`
 #
 # niri can't list its binds over IPC, so this reads the config itself: ~/.config/niri/config.kdl
 # and the files it includes, in order (a later bind of the same key replaces the earlier one,
 # as in niri). Each bind must be on one line, as in Nusku's files:
 #   Mod+T hotkey-overlay-title="Open terminal" { spawn "kitty"; }
 # The description is hotkey-overlay-title, else one made from the action; title=null hides it.
+# Mouse and wheel binds are listed but not runnable.
 set -euo pipefail
 
 config="${NUSKU_NIRI_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/niri/config.kdl}"
 
-menu() { rofi -dmenu -i -p "$1" -theme nusku -format i "${@:2}"; }
-say() { notify-send "Keybinds" "$1" 2>/dev/null || true; }
+usage() { echo "usage: nusku-menu-keybinds --list | --run N" >&2; exit 2; }
 
 # --- reading KDL -------------------------------------------------------------------------------
 
@@ -163,7 +165,7 @@ read_kdl() {
     done <"$file"
 }
 
-# --- the menu ----------------------------------------------------------------------------------
+# --- listing and running -----------------------------------------------------------------------
 
 # Friendly key names for display only.
 declare -A key_names=(
@@ -206,85 +208,32 @@ run_action() {
     fi
 }
 
+# Mouse and wheel binds are listed but not run.
+runnable() { [[ ! "$1" =~ (Wheel|Mouse|Touchpad) ]]; }
+
+case "${1:-}" in
+    --list | --run) ;;
+    *) usage ;;
+esac
 if [ ! -r "$config" ]; then
-    say "No niri config at $config"
-    exit 0
+    echo "nusku-menu-keybinds: no niri config at $config" >&2
+    exit 1
 fi
 read_kdl "$config"
 
-# Menu entries in config order: workspace binds collapse to one group line each.
-entry_kind=() entry_keys=() entry_desc=() entry_act=() entry_group=()
-declare -A group_at=() group_members=()
-group_of() {
-    local IFS="$US" f
-    read -r -a f <<<"$1"
-    [[ "${f[1]:-}" =~ ^[0-9]+$ ]] || return 1
-    case "${f[0]}" in
-        focus-workspace) echo go ;;
-        move-column-to-workspace | move-window-to-workspace) echo move ;;
-        *) return 1 ;;
-    esac
-}
-for i in "${!b_keys[@]}"; do
-    [ -n "${b_act[i]}" ] || continue
-    if g="$(group_of "${b_act[i]}")"; then
-        if [ -z "${group_at[$g]+x}" ]; then
-            group_at[$g]="${#entry_kind[@]}"
-            entry_kind+=(group) entry_keys+=("") entry_act+=("") entry_group+=("$g")
-            if [ "$g" = go ]; then entry_desc+=("Go to workspace"); else entry_desc+=("Move window to workspace"); fi
-        fi
-        group_members[$g]+="$i "
-        continue
-    fi
-    entry_kind+=(bind) entry_keys+=("$(pretty_keys "${b_keys[i]}")") entry_desc+=("${b_desc[i]}")
-    entry_act+=("$i") entry_group+=("")
-done
-if [ "${#entry_kind[@]}" -eq 0 ]; then
-    say "No keybinds found in $config"
-    exit 0
-fi
-
-# A group's keys: the shared modifiers, then the first and last key ("Super + 1…0").
-for g in "${!group_at[@]}"; do
-    read -r -a m <<<"${group_members[$g]}"
-    first="$(pretty_keys "${b_keys[${m[0]}]}")"
-    last="$(pretty_keys "${b_keys[${m[${#m[@]} - 1]}]}")"
-    entry_keys[${group_at[$g]}]="$first…${last##* + }"
-    IFS="$US" read -r -a f1 <<<"${b_act[${m[0]}]}"
-    IFS="$US" read -r -a f2 <<<"${b_act[${m[${#m[@]} - 1]}]}"
-    entry_desc[${group_at[$g]}]+=" ${f1[1]}–${f2[1]}"
-done
-
-# Mouse and wheel binds are listed but not run from the menu.
-runnable() { [[ ! "$1" =~ (Wheel|Mouse|Touchpad) ]]; }
-
-width=0
-for d in "${entry_desc[@]}"; do [ "${#d}" -gt "$width" ] && width="${#d}"; done
-# Padded by characters, not bytes (printf's width counts bytes; "–" is three).
-lines=""
-for i in "${!entry_desc[@]}"; do
-    d="${entry_desc[$i]}"
-    printf -v pad '%*s' $((width - ${#d} + 4)) ''
-    lines+="$d$pad${entry_keys[$i]}"$'\n'
-done
-
-pick="$(printf '%s' "$lines" | menu "Keybinds")" || exit 0
-[[ "$pick" =~ ^[0-9]+$ ]] && [ "$pick" -lt "${#entry_kind[@]}" ] || exit 0
-
-if [ "${entry_kind[$pick]}" = group ]; then
-    read -r -a m <<<"${group_members[${entry_group[$pick]}]}"
-    names=()
-    for i in "${m[@]}"; do
-        IFS="$US" read -r -a f <<<"${b_act[i]}"
-        names+=("Workspace ${f[1]}")
+if [ "$1" = --list ]; then
+    for i in "${!b_keys[@]}"; do
+        [ -n "${b_act[i]}" ] || continue
+        r=0; runnable "${b_keys[i]}" && r=1
+        printf '%s\t%s\t%s\t%s\n' "$i" "${b_desc[i]//$'\t'/ }" "$(pretty_keys "${b_keys[i]}")" "$r"
     done
-    sub="$(printf '%s\n' "${names[@]}" | menu "Workspace")" || exit 0
-    [[ "$sub" =~ ^[0-9]+$ ]] && [ "$sub" -lt "${#m[@]}" ] || exit 0
-    run_action "${b_act[${m[$sub]}]}"
     exit 0
 fi
 
-i="${entry_act[$pick]}"
-runnable "${b_keys[i]}" || exit 0
+i="${2:-}"
+[[ "$i" =~ ^[0-9]+$ ]] && [ "$i" -lt "${#b_keys[@]}" ] && [ -n "${b_act[i]}" ] || {
+    echo "nusku-menu-keybinds: no bind $i" >&2
+    exit 1
+}
+runnable "${b_keys[i]}" || { echo "nusku-menu-keybinds: bind $i is a mouse bind" >&2; exit 1; }
 run_action "${b_act[i]}"
-exit 0

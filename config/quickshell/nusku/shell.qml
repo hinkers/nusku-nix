@@ -1,7 +1,8 @@
 //@ pragma UseQApplication
 // Nusku shell (Quickshell): the bar and a frame round every screen, and what grows out of the
-// frame: quick settings and notification pop-ups (top-right corner), the calendar (top), the
-// app launcher (bottom) and the power menu (right).
+// frame: quick settings (with its Wi-Fi and Bluetooth pages) and notification pop-ups
+// (top-right corner), the calendar (top), the app launcher, clipboard, wallpaper and keybind
+// menus (bottom), the power menu and the volume / brightness pop-up (right).
 // Run as `qs -c nusku` (the nusku-shell user service).
 // Colours: Colors.qml (generated); sizes and fonts: Theme.qml.
 import QtQuick
@@ -29,8 +30,14 @@ ShellRoot {
     // slide back in (they share the corner).
     Popups {}
     QuickSettings {}
-    // The other menus out of the frame: calendar (top), launcher (bottom), power (right).
+    // The other menus out of the frame: calendar (top); launcher, clipboard, wallpaper and
+    // keybinds (bottom); power (right).
     Calendar {}
     Launcher {}
+    Clipboard {}
+    Wallpaper {}
+    Keybinds {}
     Session {}
+    // The volume / brightness pop-up (right).
+    Osd {}
 }

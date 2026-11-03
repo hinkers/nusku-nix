@@ -133,10 +133,10 @@ in
     has ''active-color "#cba6f7"'' (cfgText hmM "nusku/theme/niri-colors.kdl");
   "theme: every nusku-arch template rendered to ~/.config/nusku/theme" =
     builtins.all (f: hm.xdg.configFile ? "nusku/theme/${f}")
-      [ "colors.css" "colors.rasi" "gtk.css" "niri-colors.kdl" "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
+      [ "colors.css" "Colors.qml" "gtk.css" "niri-colors.kdl" "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
   "theme: no placeholders left" =
     builtins.all (f: !(has "{{" (cfgText hm "nusku/theme/${f}")))
-      [ "colors.css" "colors.rasi" "gtk.css" "niri-colors.kdl" "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
+      [ "colors.css" "Colors.qml" "gtk.css" "niri-colors.kdl" "hyprlock-colors.conf" "kitty-accent.conf" "nvim-accent.lua" ];
   "theme: kitty accent and cursor theme" =
     has "cursor #89b4fa" (cfgText hm "nusku/theme/kitty-accent.conf")
     && has ''"catppuccin-mocha-mauve-cursors"'' (cfgText hmM "nusku/theme/niri-colors.kdl");
@@ -165,9 +165,9 @@ in
     && has ''[ ! -e "$nuskuDir/local.zsh" ]'' (activation hm);
 
   # --- scripts and wallpapers ------------------------------------------------------------------
-  "scripts: nusku-wallpaper and nusku-menu-wallpaper in the user's packages" =
+  "scripts: nusku-wallpaper in the user's packages (the shell's wallpaper menu calls it)" =
     let n = pkgNames hm.home.packages; in
-    builtins.elem "nusku-wallpaper" n && builtins.elem "nusku-menu-wallpaper" n;
+    builtins.elem "nusku-wallpaper" n && !(builtins.elem "nusku-menu-wallpaper" n);
   "wallpapers linked to ~/.local/share/nusku/wallpapers" =
     hm.xdg.dataFile ? "nusku/wallpapers";
 }

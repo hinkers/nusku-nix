@@ -84,7 +84,6 @@ window-rule {
 // is not drawn behind it, so it doesn't tint the background.
 window-rule {
     match app-id="^kitty$"
-    match app-id="^nusku-nmtui$"
     draw-border-with-background false
     background-effect {
         blur true
@@ -98,14 +97,6 @@ window-rule {
     match app-id="^nm-connection-editor$"
     match app-id="^xdg-desktop-portal-gtk$"
     open-floating true
-}
-
-// Network picker (the panel's Wi-Fi ›, or right-click the bar's network icon): nmtui in a floating kitty.
-window-rule {
-    match app-id="^nusku-nmtui$"
-    open-floating true
-    default-column-width { fixed 720; }
-    default-window-height { fixed 520; }
 }
 
 // --- Includes (order matters: later wins) ---------------------------------------------------

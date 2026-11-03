@@ -38,7 +38,8 @@ in
     && has "PanelState.toggleOn(pill.screen)" (qml "bar/QuickPill.qml")
     && builtins.all (f: !(has ".local/bin" (builtins.readFile f))) qmlFiles
     && has "Menus.calendar.toggleOn(root.screen)" (qml "bar/Clock.qml")
-    && has ''"nusku-menu-wifi"'' (qml "panel/QuickSettings.qml")
+    && has ''PanelState.page = "wifi"'' (qml "panel/QuickSettings.qml")
+    && has ''PanelState.openPage(pill.screen, "bluetooth")'' (qml "bar/QuickPill.qml")
     && has "Menus.session.toggleOn" (qml "panel/QuickSettings.qml");
   "shell: launcher (Super + Space / Super + D) and power menu (Super + Escape / Super + X) are its own" =
     let nusku = builtins.readFile ../../config/niri/binds-nusku.kdl; niri = builtins.readFile ../../config/niri/binds-niri.kdl; ipc = n: ''"qs" "-c" "nusku" "ipc" "call" "${n}" "toggle"''; in
@@ -47,8 +48,16 @@ in
     && has ("Mod+D hotkey-overlay-title=\"Run an Application\" { spawn " + ipc "launcher") niri
     && has ("Mod+X hotkey-overlay-title=\"Power menu\" { spawn " + ipc "session") niri
     && !(has "drun" nusku) && !(has "drun" niri) && !(has "nusku-menu-power" (nusku + niri));
+  "shell: the volume / brightness pop-up, and the brightness keys show it" =
+    has "edge: \"right\"" (qml "frame/Osd.qml") && has "onVolumeChanged" (qml "frame/Osd.qml")
+    && builtins.all (f: has "qs -c nusku ipc call osd brightness" (builtins.readFile (../../config/niri + "/${f}")))
+      [ "binds-niri.kdl" "binds-nusku.kdl" ];
+  "shell: Wi-Fi and Bluetooth pages in quick settings (native NetworkManager / BlueZ)" =
+    has "connectWithPsk" (qml "panel/WifiPage.qml") && has "scannerEnabled" (qml "panel/WifiPage.qml")
+    && has "d.pair()" (qml "panel/BluetoothPage.qml") && has "discovering" (qml "panel/BluetoothPage.qml");
   "shell: every menu grows out of the frame (drawers) and one is open at a time" =
-    builtins.all (f: has "Drawer {" (qml "menus/${f}")) [ "Calendar.qml" "Launcher.qml" "Session.qml" ]
+    builtins.all (f: has "Drawer {" (qml "menus/${f}")) [ "Calendar.qml" "Launcher.qml" "Session.qml" "Wallpaper.qml" "PickerMenu.qml" ]
+    && builtins.all (f: has "PickerMenu {" (qml "menus/${f}")) [ "Clipboard.qml" "Keybinds.qml" ]
     && has "edge: \"top\"" (qml "menus/Calendar.qml") && has "edge: \"bottom\"" (qml "menus/Launcher.qml")
     && has "edge: \"right\"" (qml "menus/Session.qml")
     && has "function closeAll" (qml "services/Menus.qml");
@@ -60,16 +69,10 @@ in
   # --- scripts -------------------------------------------------------------------------------
   "scripts: quick settings and pickers installed" =
     builtins.all (n: pkgByName n != null)
-      [ "nusku-quick" "nusku-menu-wifi" "nusku-menu-bluetooth" "nusku-calendar-events" ];
+      [ "nusku-quick" "nusku-calendar-events" ];
   "scripts: runtime tools on their PATH" =
-    let
-      q = scriptText "nusku-quick";
-      w = scriptText "nusku-menu-wifi";
-      b = scriptText "nusku-menu-bluetooth";
-    in
-    builtins.all (p: has p q) [ "wlsunset" "wireplumber" "networkmanager" "bluez" "power-profiles-daemon" "quickshell" "procps" "util-linux" "libnotify" ]
-    && builtins.all (p: has p w) [ "rofi" "networkmanager" "kitty" "libnotify" ]
-    && builtins.all (p: has p b) [ "rofi" "bluez" "blueman" "util-linux" ];
+    let q = scriptText "nusku-quick"; in
+    builtins.all (p: has p q) [ "wlsunset" "wireplumber" "networkmanager" "bluez" "power-profiles-daemon" "quickshell" "procps" "util-linux" "libnotify" ];
   "scripts: own set options kept (no added errexit)" =
     !(has "set -o errexit" (scriptText "nusku-quick")) && has "set -uo pipefail" (scriptText "nusku-quick");
   "nm-connection-editor installed" = builtins.elem "network-manager-applet" pkgNames;

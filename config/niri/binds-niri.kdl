@@ -1,5 +1,5 @@
 // Nusku - niri's default keybinds (from niri's own default config), with Nusku's apps in place
-// of niri's examples (kitty, rofi, hyprlock) and Nusku's menus added on free keys.
+// of niri's examples (kitty, the shell's launcher, hyprlock) and Nusku's menus added on free keys.
 // Mod is Super. Super+/ searches them, Super+Shift+/ is niri's own list. Used when config.kdl
 // includes this file instead of binds-nusku.kdl. Keep each bind on one line (Super+/ reads
 // them). Your own binds go in ~/.config/nusku/local.kdl; a key bound there replaces it here.
@@ -10,9 +10,9 @@ binds {
     Mod+B hotkey-overlay-title="Web browser" { spawn "nusku-browser"; }
     Mod+N hotkey-overlay-title="Quick settings" { spawn "qs" "-c" "nusku" "ipc" "call" "panel" "toggle"; }
     Mod+X hotkey-overlay-title="Power menu" { spawn "qs" "-c" "nusku" "ipc" "call" "session" "toggle"; }
-    Super+Alt+V hotkey-overlay-title="Clipboard history" { spawn "nusku-menu-clipboard"; }
-    Super+Alt+W hotkey-overlay-title="Change wallpaper" { spawn "nusku-menu-wallpaper"; }
-    Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "nusku-menu-keybinds"; }
+    Super+Alt+V hotkey-overlay-title="Clipboard history" { spawn "qs" "-c" "nusku" "ipc" "call" "clipboard" "toggle"; }
+    Super+Alt+W hotkey-overlay-title="Change wallpaper" { spawn "qs" "-c" "nusku" "ipc" "call" "wallpaper" "toggle"; }
+    Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "qs" "-c" "nusku" "ipc" "call" "keybinds" "toggle"; }
 
     // --- niri's defaults -----------------------------------------------------------------
     Mod+Shift+Slash { show-hotkey-overlay; }
@@ -27,8 +27,8 @@ binds {
     XF86AudioStop        allow-when-locked=true { spawn-sh "playerctl stop"; }
     XF86AudioPrev        allow-when-locked=true { spawn-sh "playerctl previous"; }
     XF86AudioNext        allow-when-locked=true { spawn-sh "playerctl next"; }
-    XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+10%"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
+    XF86MonBrightnessUp allow-when-locked=true { spawn-sh "brightnessctl --class=backlight set +10% && qs -c nusku ipc call osd brightness"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn-sh "brightnessctl --class=backlight set 10%- && qs -c nusku ipc call osd brightness"; }
     Mod+O repeat=false { toggle-overview; }
     Mod+Q repeat=false { close-window; }
     Mod+Left  { focus-column-left; }

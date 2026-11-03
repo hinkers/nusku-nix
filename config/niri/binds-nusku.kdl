@@ -1,6 +1,6 @@
 // Nusku - Nusku's own keybinds (the Hyprland layout, moved to niri); config.kdl includes this
 // file (or binds-niri.kdl instead). Mod is Super; Super+/ searches them. Keep each bind on one
-// line: the Super+/ menu (nusku-menu-keybinds) reads them, with hotkey-overlay-title as the text.
+// line: the Super+/ search (nusku-menu-keybinds) reads them, with hotkey-overlay-title as the text.
 // Hyprland's pseudo-tile (Super+P) and split toggle (Super+J) have no niri equivalent: they
 // cycle the column width and switch the column to tabs instead.
 
@@ -10,11 +10,11 @@ binds {
     Mod+Space hotkey-overlay-title="App launcher" { spawn "qs" "-c" "nusku" "ipc" "call" "launcher" "toggle"; }
     Mod+E hotkey-overlay-title="File manager" { spawn "thunar"; }
     Mod+B hotkey-overlay-title="Web browser" { spawn "nusku-browser"; }
-    Mod+V hotkey-overlay-title="Clipboard history" { spawn "nusku-menu-clipboard"; }
-    Mod+W hotkey-overlay-title="Change wallpaper" { spawn "nusku-menu-wallpaper"; }
+    Mod+V hotkey-overlay-title="Clipboard history" { spawn "qs" "-c" "nusku" "ipc" "call" "clipboard" "toggle"; }
+    Mod+W hotkey-overlay-title="Change wallpaper" { spawn "qs" "-c" "nusku" "ipc" "call" "wallpaper" "toggle"; }
     Mod+Escape hotkey-overlay-title="Power menu" { spawn "qs" "-c" "nusku" "ipc" "call" "session" "toggle"; }
     Mod+N hotkey-overlay-title="Quick settings" { spawn "qs" "-c" "nusku" "ipc" "call" "panel" "toggle"; }
-    Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "nusku-menu-keybinds"; }
+    Mod+Slash hotkey-overlay-title="Search keybinds" { spawn "qs" "-c" "nusku" "ipc" "call" "keybinds" "toggle"; }
     Mod+Shift+Slash hotkey-overlay-title="Show keybinds (niri)" { show-hotkey-overlay; }
 
     // --- Session -------------------------------------------------------------------------
@@ -94,8 +94,8 @@ binds {
     XF86AudioLowerVolume  allow-when-locked=true hotkey-overlay-title="Volume down" { spawn-sh "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%-"; }
     XF86AudioMute         allow-when-locked=true hotkey-overlay-title="Mute" { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
     XF86AudioMicMute      allow-when-locked=true hotkey-overlay-title="Mute microphone" { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"; }
-    XF86MonBrightnessUp   allow-when-locked=true hotkey-overlay-title="Brightness up" { spawn "brightnessctl" "set" "5%+"; }
-    XF86MonBrightnessDown allow-when-locked=true hotkey-overlay-title="Brightness down" { spawn "brightnessctl" "set" "5%-"; }
+    XF86MonBrightnessUp   allow-when-locked=true hotkey-overlay-title="Brightness up" { spawn-sh "brightnessctl set 5%+ && qs -c nusku ipc call osd brightness"; }
+    XF86MonBrightnessDown allow-when-locked=true hotkey-overlay-title="Brightness down" { spawn-sh "brightnessctl set 5%- && qs -c nusku ipc call osd brightness"; }
     XF86AudioPlay         allow-when-locked=true hotkey-overlay-title="Play or pause" { spawn "playerctl" "play-pause"; }
     XF86AudioPause        allow-when-locked=true hotkey-overlay-title="Play or pause" { spawn "playerctl" "play-pause"; }
     XF86AudioNext         allow-when-locked=true hotkey-overlay-title="Next track" { spawn "playerctl" "next"; }
