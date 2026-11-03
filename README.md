@@ -80,6 +80,18 @@ rosewater flamingo pink mauve red maroon peach yellow green teal sky sapphire bl
 Log out and back in after the rebuild to see the new colour everywhere. (nusku-arch's instant
 `nusku-theme` is gone: the colours are part of the build.)
 
+**Any other app:** add its nixpkgs name to `"packages"` in `hosts/NAME/settings.json` and run
+`nusku-rebuild`. Find the name with `nix search nixpkgs NAME` (or search.nixos.org); names with
+a dot work too:
+
+```json
+"packages": ["htop", "kdePackages.kate"]
+```
+
+A name that isn't in nixpkgs stops the rebuild and says which one. The installer never asks
+about these and keeps them when you change your settings. To offer an app on every machine (in
+the installer's list), add it to `lib/catalogue.nix` and `modules/nixos/apps.nix` instead.
+
 The wallpaper picker (Super + Alt + W) is instant and isn't part of the build; your choice is kept.
 
 ## The desktop
@@ -255,6 +267,11 @@ over the machine. Log out and back in to use `docker` without sudo. Compose is t
   this PC's user name and password. The connection is always encrypted; the viewer may ask you
   to accept the PC's certificate the first time. Viewers that only know plain VNC passwords
   can't connect. `systemctl --user status wayvnc` shows whether it's running.
+
+### Old School RuneScape
+
+The app is **Bolt Launcher**. Log in with your Jagex account there, then pick RuneLite (or the
+official client) and Play; Bolt downloads and updates the client itself.
 
 ### Snapper
 

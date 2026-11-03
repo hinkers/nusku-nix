@@ -1,6 +1,6 @@
 # The nusku.* options: the installer's answers, read from the host's settings.json (passed in
 # as the `settings` special argument by lib/hosts.nix). Every other module reads config.nusku.
-{ config, lib, settings, ... }:
+{ config, lib, pkgs, settings, ... }:
 let
   inherit (lib) types mkOption;
   cfg = config.nusku;
@@ -100,6 +100,15 @@ let
       default = [ ];
       description = "Language ids from lib/catalogue.nix.";
     };
+    packages = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = ''
+        Extra nixpkgs packages for this machine, by attribute name (e.g. "htop", or a path
+        like "kdePackages.kate"), outside the catalogue: no installer question. apps.nix
+        installs them system-wide.
+      '';
+    };
     stateVersion = mkOption {
       type = types.str;
       # Hosts recorded before install.sh wrote the key were all built as 26.05.
@@ -117,6 +126,11 @@ let
   unknownKeys = builtins.filter (k: !(builtins.elem k known)) (builtins.attrNames settings);
   unknownApps = builtins.filter (a: !(builtins.elem a (ids catalogue.apps))) cfg.apps;
   unknownLangs = builtins.filter (l: !(builtins.elem l (ids catalogue.langs))) cfg.langs;
+  # A package name that isn't a package in this nixpkgs (or is a removed one, which throws).
+  isPackage = name:
+    let r = builtins.tryEval (let p = lib.attrByPath (lib.splitString "." name) null pkgs; in p != null && lib.isDerivation p);
+    in r.success && r.value;
+  unknownPackages = builtins.filter (p: !(isPackage p)) cfg.packages;
   hasNvidia = builtins.elem cfg.gpu nvidiaGpus;
 
   # A missing required key fails the assertion below, and throws if read before assertions
@@ -151,6 +165,12 @@ in
       {
         assertion = unknownLangs == [ ];
         message = lib.concatMapStringsSep "\n" (l: "settings.json: unknown lang id ${quote l} (not in lib/catalogue.nix)") unknownLangs;
+      }
+      {
+        assertion = unknownPackages == [ ];
+        message = lib.concatMapStringsSep "\n"
+          (p: "settings.json: unknown package ${quote p} (not in nixpkgs; look it up with: nix search nixpkgs ${p})")
+          unknownPackages;
       }
       {
         assertion = hasNvidia -> cfg.nvidia != null;

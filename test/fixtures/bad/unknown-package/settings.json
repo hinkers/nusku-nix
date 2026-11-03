@@ -1,0 +1,11 @@
+{
+  "hostname": "unknown-package",
+  "user": "nusku",
+  "gpu": "vm",
+  "accent": "blue",
+  "apps": [],
+  "packages": [
+    "htop",
+    "not-a-real-package-xyz"
+  ]
+}

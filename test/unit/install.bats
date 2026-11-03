@@ -506,6 +506,21 @@ evaluator() {
     [ "$(jq 'has("stateVersion")' "$f")" = false ]
 }
 
+@test "packages: --reconfigure keeps settings.json's extra packages (the installer never asks)" {
+    seed_host laptop
+    local f="$REPO/hosts/laptop/settings.json"
+    jq '.packages = ["htop", "kdePackages.kate"]' "$f" >"$f.new" && mv "$f.new" "$f" && owner commit -q -am "packages"
+    keys '\e[F\n'
+    NUSKU_HOSTNAME=laptop run install --reconfigure --no-reboot
+    [ "$status" -eq 0 ]
+    [ "$(jq -c .packages "$f")" = '["htop","kdePackages.kate"]' ]
+    # A host without any gets no "packages" key at all.
+    seed_host desk
+    keys '\e[F\n'
+    NUSKU_HOSTNAME=desk run install --reconfigure --no-reboot
+    [ "$(jq 'has("packages")' "$REPO/hosts/desk/settings.json")" = false ]
+}
+
 # --- the home check: files where Home Manager puts its own -----------------------------------
 
 # leftovers: nusku-arch's files (plain files and folders), next to ones Home Manager already made

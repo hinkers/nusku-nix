@@ -5,6 +5,7 @@
 #   systemApps     NixOS settings for apps that need more than a package: services, groups,
 #                  firewall ports, file associations (nusku-arch's app hooks, declared).
 #   handledInHome  Home Manager does all of it (modules/home/shell.nix, browsers.nix).
+# settings.json "packages" (any nixpkgs package by name, no catalogue entry) are installed here too.
 # Unfree apps (Discord, Obsidian, Spotify, Steam, VS Code, Claude Code, Parsec) rely on
 # nixpkgs.config.allowUnfree (base.nix).
 { config, lib, pkgs, ... }:
@@ -66,6 +67,8 @@ let
     mangohud = [ mangohud ];
     protonup = [ protonup-qt ];
     wine = [ wineWow64Packages.stable winetricks ];
+    # Bolt logs in with a Jagex account and starts RuneLite (or the official client).
+    osrs = [ bolt-launcher ];
 
     remmina = [ remmina ];
     gparted = [ gparted ];
@@ -186,7 +189,11 @@ in
       };
 
       environment.systemPackages = lib.concatMap (a: packagesFor.${a.id} or [ ])
-        (builtins.filter (a: !isBrowser a) pickedApps);
+        (builtins.filter (a: !isBrowser a) pickedApps)
+        # settings.json "packages": any nixpkgs package by name. Names that aren't one are left
+        # out here and reported by options.nix's assertion (a clear message, not a Nix trace).
+        ++ builtins.filter (p: (builtins.tryEval (lib.isDerivation p)).value or false)
+          (map (name: lib.attrByPath (lib.splitString "." name) null pkgs) cfg.packages);
 
       xdg.mime.defaultApplications = mkIf (browsers != [ ]) (
         let desktop = browserDesktop.${(builtins.head browsers).id}; in {

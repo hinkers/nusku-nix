@@ -47,7 +47,7 @@ in
   "catalogue: Zen, UFW, Flatpak and the missing ArtCraft apps are gone" =
     hasNone [ "zen" "ufw" "flatpak" "filmcraft" "effectcraft" "designcraft" "figcraft" ] ids;
   "catalogue: group sizes" =
-    map (g: builtins.length (inGroup g.id)) catalogue.groups == [ 6 12 4 5 9 10 6 ];
+    map (g: builtins.length (inGroup g.id)) catalogue.groups == [ 6 12 4 5 9 11 6 ];
   "catalogue: optional GNOME Calendar with nusku-arch's label" =
     labelOf "calendar" == "GNOME Calendar (Google and Nextcloud sync)";
   "catalogue: LibreWolf no longer says Flatpak" = labelOf "librewolf" == "LibreWolf";
@@ -111,6 +111,10 @@ in
     lib.hasInfix "kitty\" \"-e\" \"yazi" (autostart c) && lib.hasInfix "nusku-obsidian-theme" (autostart c);
   "yazi not picked: no yazi bind" =
     builtins.all (c: !(lib.hasInfix "yazi" (autostart c))) [ none min ];
+  "packages: settings.json's extra nixpkgs packages are installed, dotted names too" =
+    let c = (hosts.vm-min.extendModules { modules = [{ nusku.packages = lib.mkForce [ "htop" "python3Packages.rich" ]; }]; }).config; in
+    builtins.elem "htop" (sysNames c) && builtins.elem "rich" (map (p: p.pname or "") c.environment.systemPackages)
+    && !(builtins.elem "htop" (sysNames min));
   "moonlight: mDNS replies allowed in" = builtins.elem 5353 (udp (pick [ "moonlight" ]));
   "wayvnc: installed, VNC port open, PAM service" =
     let c = pick [ "wayvnc" ]; in builtins.elem "wayvnc" (sysNames c) && builtins.elem 5900 (tcp c)

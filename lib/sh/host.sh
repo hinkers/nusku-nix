@@ -53,7 +53,7 @@ host_load() {
         "PRIME_IGPU=\(.prime.intelBusId // .prime.amdgpuBusId // "")",
         "PRIME_NVIDIA=\(.prime.nvidiaBusId // "")", "PANELS=\(.panels // [] | tojson)",
         "ACCENT=\(.accent)", "APPS=\(.apps // [] | join(" "))", "LANGS=\(.langs // [] | join(" "))",
-        "STATE_VERSION=\(.stateVersion // "")"
+        "STATE_VERSION=\(.stateVersion // "")", "PACKAGES=\(.packages // [] | join(" "))"
         ' "$file")" || die "Could not read $file"
     while IFS= read -r line; do
         NUSKU_ANSWERS[${line%%=*}]="${line#*=}"
@@ -65,7 +65,7 @@ host_load() {
 host_settings_json() {
     local k
     local -a args=()
-    for k in HOSTNAME USER TIMEZONE LOCALE KEYMAP BOOT_LOADER BOOT_DEVICE GPU NVIDIA PRIME_IGPU PRIME_NVIDIA ACCENT APPS LANGS STATE_VERSION; do
+    for k in HOSTNAME USER TIMEZONE LOCALE KEYMAP BOOT_LOADER BOOT_DEVICE GPU NVIDIA PRIME_IGPU PRIME_NVIDIA ACCENT APPS LANGS STATE_VERSION PACKAGES; do
         args+=(--arg "$k" "${NUSKU_ANSWERS[$k]:-}")
     done
     jq -n "${args[@]}" --argjson PANELS "${NUSKU_ANSWERS[PANELS]:-[]}" '
@@ -80,7 +80,9 @@ host_settings_json() {
                       nvidiaBusId: $PRIME_NVIDIA }
                   else null end),
           panels: $PANELS, accent: $ACCENT, apps: ($APPS | words), langs: ($LANGS | words)
-        } + (if $STATE_VERSION == "" then {} else { stateVersion: $STATE_VERSION } end)'
+        } + (if $STATE_VERSION == "" then {} else { stateVersion: $STATE_VERSION } end)
+          # The installer never asks for "packages" (extra nixpkgs packages): kept as they are.
+          + (if ($PACKAGES | words) == [] then {} else { packages: ($PACKAGES | words) } end)'
 }
 
 # host_write NAME: write hosts/NAME/settings.json from the answers.
