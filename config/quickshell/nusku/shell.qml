@@ -42,6 +42,8 @@ ShellRoot {
     BatteryMenu {}
     // Outputs, inputs and each app's volume, under the bar's speaker.
     VolumeMenu {}
+    // What's playing, under the bar's media button.
+    MediaMenu {}
     // The volume / brightness pop-up (right).
     Osd {}
 }

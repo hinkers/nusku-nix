@@ -117,13 +117,15 @@ The bar and its menus are Nusku's own shell, built with [Quickshell](https://qui
 (`config/quickshell/nusku`, in your accent colour). The bar is the top of a slim frame round
 the screen (windows sit inside it), and every menu grows out of the frame:
 
-- The bar: workspaces, the window title, the clock, the tray, the volume, the battery and one
-  pill for network, Bluetooth and notifications. Click the volume for its menu (output and
+- The bar: workspaces, the window title, the app launcher button, the clock, what's playing,
+  the tray, the volume, the battery and one pill for network, Bluetooth and notifications.
+  Click what's playing for the media menu (track, seek, controls, which player; scroll on it
+  to skip, middle-click to play or pause). Click the volume for its menu (output and
   input devices, each app's volume; scroll on it to change the volume, middle-click to mute),
   the battery for its details (time left, power draw, health, other devices' batteries).
 - The pill (or Super + N) opens quick settings, out of the top-right corner: Wi-Fi and
-  Bluetooth, Do Not Disturb, night light, airplane mode, keep awake, mute, screenshot, power,
-  brightness and volume, power profiles, what's playing, and the notifications. The › next to
+  Bluetooth, Do Not Disturb, night light, airplane mode, keep awake, brightness, and the
+  notifications. The › next to
   Wi-Fi or Bluetooth (or right-clicking its icon on the bar) shows its page: networks to join
   (a new one asks for its password there) or devices to connect and pair. Right-click the
   bell for Do Not Disturb.

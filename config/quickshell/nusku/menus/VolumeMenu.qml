@@ -60,6 +60,62 @@ PanelWindow {
         }
     }
 
+    // Which output or input: shows the one in use; a click lists them all to pick another.
+    component DevicePicker: ColumnLayout {
+        id: pk
+        required property var nodes
+        required property var current
+        property bool expanded: false
+        signal picked(var node)
+        Layout.fillWidth: true
+        visible: nodes.length > 1
+        spacing: 2
+
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 34
+            radius: Theme.radius
+            color: pkMouse.containsMouse ? Colors.surface1 : Colors.surface0
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 10
+                Label {
+                    Layout.fillWidth: true
+                    text: pk.current ? Audio.label(pk.current) : "None"
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+                Icon { text: pk.expanded ? "󰅃" : "󰅀"; size: 14; color: Colors.subtext0 }
+            }
+            MouseArea {
+                id: pkMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: pk.expanded = !pk.expanded
+            }
+            Tip { text: pk.expanded ? "" : "Choose another"; hovered: pkMouse.containsMouse }
+        }
+        Repeater {
+            model: pk.expanded ? pk.nodes : []
+            DeviceRow {
+                required property var modelData
+                node: modelData
+                current: modelData === pk.current
+                onPicked: { pk.picked(modelData); pk.expanded = false; }
+            }
+        }
+    }
+
+    // Both pickers start folded each time the menu opens.
+    Connections {
+        target: win.menu
+        function onOpenChanged() {
+            if (win.menu.open) { outputs.expanded = false; inputs.expanded = false; }
+        }
+    }
+
     Drawer {
         id: drawer
         edge: "top"
@@ -95,14 +151,11 @@ PanelWindow {
                     onMoved: v => Audio.setVolume(Audio.sink, v)
                     onIconClicked: Audio.toggleMute(Audio.sink)
                 }
-                Repeater {
-                    model: Audio.sinks.length > 1 ? Audio.sinks : []
-                    DeviceRow {
-                        required property var modelData
-                        node: modelData
-                        current: modelData === Audio.sink
-                        onPicked: Pipewire.preferredDefaultAudioSink = modelData
-                    }
+                DevicePicker {
+                    id: outputs
+                    nodes: Audio.sinks
+                    current: Audio.sink
+                    onPicked: node => Pipewire.preferredDefaultAudioSink = node
                 }
 
                 // --- Input --------------------------------------------------------------
@@ -117,14 +170,12 @@ PanelWindow {
                     onMoved: v => Audio.setVolume(Audio.source, v)
                     onIconClicked: Audio.toggleMute(Audio.source)
                 }
-                Repeater {
-                    model: Audio.sources.length > 1 ? Audio.sources : []
-                    DeviceRow {
-                        required property var modelData
-                        node: modelData
-                        current: modelData === Audio.source
-                        onPicked: Pipewire.preferredDefaultAudioSource = modelData
-                    }
+                DevicePicker {
+                    id: inputs
+                    visible: Audio.source !== null && nodes.length > 1
+                    nodes: Audio.sources
+                    current: Audio.source
+                    onPicked: node => Pipewire.preferredDefaultAudioSource = node
                 }
 
                 // --- Apps ---------------------------------------------------------------

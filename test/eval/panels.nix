@@ -57,7 +57,16 @@ in
     && has "Menus.calendar.toggleOn(root.screen)" (qml "bar/Clock.qml")
     && has ''PanelState.page = "wifi"'' (qml "panel/QuickSettings.qml")
     && has ''PanelState.openPage(pill.screen, "bluetooth")'' (qml "bar/QuickPill.qml")
-    && has "Menus.session.toggleOn" (qml "panel/QuickSettings.qml");
+    && has "Menus.launcher.toggleOn(root.screen)" (qml "bar/LauncherButton.qml")
+    && has "Menus.media.toggleAt" (qml "bar/MediaButton.qml");
+  "shell: quick settings is Wi-Fi, Bluetooth, four labelled toggles, brightness, notifications" =
+    let q = qml "panel/QuickSettings.qml"; in
+    builtins.all (t: has ''title: "${t}"'' q) [ "Do Not Disturb" "Night light" "Airplane mode" "Keep awake" ]
+    && has "ToggleTile" (qml "panel/ToggleTile.qml" + q) && has "Brightness.set" q
+    && !(has "PowerProfiles" q) && !(has "Pipewire" q) && !(has "screenshot" q);
+  "shell: media menu (track, seek, controls, player choice) and collapsible audio pickers" =
+    has "Media.pickedName" (qml "menus/MediaMenu.qml") && has "canSeek" (qml "menus/MediaMenu.qml")
+    && has "component DevicePicker" (qml "menus/VolumeMenu.qml") && has "property bool expanded: false" (qml "menus/VolumeMenu.qml");
   "shell: launcher (Super + Space / Super + D) and power menu (Super + Escape / Super + X) are its own" =
     let nusku = builtins.readFile ../../config/niri/binds-nusku.kdl; niri = builtins.readFile ../../config/niri/binds-niri.kdl; ipc = n: ''"qs" "-c" "nusku" "ipc" "call" "${n}" "toggle"''; in
     has ("Mod+Space hotkey-overlay-title=\"App launcher\" { spawn " + ipc "launcher") nusku

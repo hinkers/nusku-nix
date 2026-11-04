@@ -1,12 +1,11 @@
-// The quick settings panel (bar pill, Super + N): Wi-Fi and Bluetooth, the toggles, brightness
-// and volume, power profiles, the media player and the notification list. Esc or a click
-// outside closes it.
+// The quick settings panel (bar pill, Super + N): Wi-Fi and Bluetooth (with their pages), the
+// toggles, brightness and the notification list. Volume, media, power profiles and the power
+// menu have their own places now (the bar's speaker, media button and battery; Super + Escape).
+// Esc or a click outside closes it.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Services.Pipewire
-import Quickshell.Services.UPower
 import qs
 import qs.services
 import qs.widgets
@@ -56,10 +55,6 @@ Scope {
         property real fullHeight: Math.min(maxHeight, PanelState.page === "main" ? body.implicitHeight + 32 : 520)
         Behavior on fullHeight { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-        PwObjectTracker {
-            objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
-        }
-        readonly property var sink: Pipewire.defaultAudioSink
 
         CornerDrawer {
             id: drawer
@@ -131,102 +126,45 @@ Scope {
                     // --- Toggles --------------------------------------------------------------
                     GridLayout {
                         Layout.fillWidth: true
-                        columns: 4
+                        columns: 2
                         rowSpacing: Theme.gap
                         columnSpacing: Theme.gap
-                        component Toggle: IconButton {
+                        component Tile: ToggleTile {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 1
-                            implicitHeight: 48
                         }
-                        Toggle {
-                            icon: "󰂛"; active: Notifs.dnd; onClicked: Notifs.dnd = !Notifs.dnd
-                            tooltip: "Do Not Disturb: " + (active ? "on" : "off")
+                        Tile {
+                            icon: "󰂛"; title: "Do Not Disturb"; active: Notifs.dnd
+                            onClicked: Notifs.dnd = !Notifs.dnd
+                            tooltip: active ? "Notifications don't pop up (they still collect below)" : ""
                         }
-                        Toggle {
-                            icon: "󰖔"; active: Quick.on("night"); onClicked: Quick.toggle("night")
-                            tooltip: "Night light: " + (active ? "on" : "off")
+                        Tile {
+                            icon: "󰖔"; title: "Night light"; active: Quick.on("night")
+                            onClicked: Quick.toggle("night")
+                            tooltip: "A warmer screen"
                         }
-                        Toggle {
-                            icon: "󰀝"; active: Quick.on("airplane"); onClicked: Quick.toggle("airplane")
-                            tooltip: "Airplane mode: " + (active ? "on" : "off")
+                        Tile {
+                            icon: "󰀝"; title: "Airplane mode"; active: Quick.on("airplane")
+                            onClicked: Quick.toggle("airplane")
+                            tooltip: "Every radio off: Wi-Fi and Bluetooth"
                         }
-                        Toggle {
-                            icon: "󰅶"; active: Quick.on("caffeine"); onClicked: Quick.toggle("caffeine")
-                            tooltip: active ? "Keep awake: on (no dimming, locking or screen off)" : "Keep awake: off"
-                        }
-                        Toggle {
-                            icon: panel.sink && panel.sink.audio && panel.sink.audio.muted ? "󰝟" : "󰕾"
-                            active: panel.sink && panel.sink.audio ? panel.sink.audio.muted : false
-                            onClicked: if (panel.sink && panel.sink.audio) panel.sink.audio.muted = !panel.sink.audio.muted
-                            tooltip: active ? "Sound: muted" : "Mute sound"
-                        }
-                        Toggle {
-                            readonly property var source: Pipewire.defaultAudioSource
-                            icon: source && source.audio && source.audio.muted ? "󰍭" : "󰍬"
-                            active: source && source.audio ? source.audio.muted : false
-                            onClicked: if (source && source.audio) source.audio.muted = !source.audio.muted
-                            tooltip: active ? "Microphone: muted" : "Mute microphone"
-                        }
-                        Toggle {
-                            icon: "󰹑"; onClicked: root.run(["sh", "-c", "sleep 0.3; niri msg action screenshot"])
-                            tooltip: "Screenshot a region"
-                        }
-                        Toggle {
-                            icon: "󰐥"; onClicked: Menus.session.toggleOn(PanelState.screen)
-                            tooltip: "Power menu: lock, log out, suspend, reboot, shut down"
+                        Tile {
+                            icon: "󰅶"; title: "Keep awake"; active: Quick.on("caffeine")
+                            onClicked: Quick.toggle("caffeine")
+                            tooltip: "No dimming, locking or screen off while it's on"
                         }
                     }
 
-                    // --- Sliders --------------------------------------------------------------
+                    // --- Brightness -----------------------------------------------------------
                     SliderRow {
                         Layout.fillWidth: true
+                        Layout.topMargin: 2
                         visible: Brightness.available
                         icon: "󰃟"
                         iconTooltip: "Brightness"
                         value: Brightness.value
                         onMoved: v => Brightness.set(v)
                     }
-                    SliderRow {
-                        Layout.fillWidth: true
-                        visible: panel.sink !== null
-                        icon: muted ? "󰝟" : "󰕾"
-                        muted: panel.sink && panel.sink.audio ? panel.sink.audio.muted : false
-                        value: panel.sink && panel.sink.audio ? panel.sink.audio.volume : 0
-                        onMoved: v => { if (panel.sink && panel.sink.audio) panel.sink.audio.volume = v; }
-                        onIconClicked: if (panel.sink && panel.sink.audio) panel.sink.audio.muted = !panel.sink.audio.muted
-                        iconTooltip: (muted ? "Unmute" : "Mute") + (panel.sink ? " " + (panel.sink.description || panel.sink.nickname || "") : "")
-                    }
-
-                    // --- Power profiles ------------------------------------------------------
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.gap
-                        component Profile: IconButton {
-                            property int profile
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 1
-                            implicitHeight: 38
-                            iconSize: Theme.fontSize + 2
-                            active: PowerProfiles.profile === profile
-                            onClicked: PowerProfiles.profile = profile
-                        }
-                        Profile {
-                            icon: "󰾆"; text: "Saver"; profile: PowerProfile.PowerSaver
-                            tooltip: "Power saver: longer battery life, slower"
-                        }
-                        Profile {
-                            icon: "󰾅"; text: "Balanced"; profile: PowerProfile.Balanced
-                            tooltip: "Balanced power profile"
-                        }
-                        Profile {
-                            visible: PowerProfiles.hasPerformanceProfile
-                            icon: "󰓅"; text: "Perf"; profile: PowerProfile.Performance
-                            tooltip: "Performance: fastest, uses more power"
-                        }
-                    }
-
-                    Media { Layout.fillWidth: true }
 
                     // --- Notifications -------------------------------------------------------
                     RowLayout {

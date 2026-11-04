@@ -19,7 +19,9 @@ Singleton {
     readonly property DrawerState battery: DrawerState { name: "battery"; onOpened: root.closeAll(this) }
     // Down from under the bar's speaker: outputs, inputs and each app's volume.
     readonly property DrawerState volume: DrawerState { name: "volume"; onOpened: root.closeAll(this) }
-    readonly property list<DrawerState> all: [calendar, launcher, session, clipboard, wallpaper, keybinds, battery, volume]
+    // Down from under the bar's media button: what's playing, its controls, which player.
+    readonly property DrawerState media: DrawerState { name: "media"; onOpened: root.closeAll(this) }
+    readonly property list<DrawerState> all: [calendar, launcher, session, clipboard, wallpaper, keybinds, battery, volume, media]
     readonly property bool anyOpen: PanelState.open || all.some(m => m.open)
 
     // Close every menu but `keep` (null: all of them).

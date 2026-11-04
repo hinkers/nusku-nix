@@ -28,7 +28,7 @@ PanelWindow {
 
     RowLayout {
         anchors.left: parent.left
-        anchors.right: clock.left
+        anchors.right: centre.left
         anchors.verticalCenter: parent.verticalCenter
         anchors.leftMargin: 6
         anchors.rightMargin: 12
@@ -40,9 +40,24 @@ PanelWindow {
         }
     }
 
+    // The middle: the clock (and calendar) stays centred; the app launcher on its left, what's
+    // playing on its right.
     Clock {
         id: clock
         anchors.centerIn: parent
+        screen: bar.screen
+    }
+    LauncherButton {
+        id: centre
+        anchors.right: clock.left
+        anchors.rightMargin: 4
+        anchors.verticalCenter: parent.verticalCenter
+        screen: bar.screen
+    }
+    MediaButton {
+        anchors.left: clock.right
+        anchors.leftMargin: 4
+        anchors.verticalCenter: parent.verticalCenter
         screen: bar.screen
     }
 
