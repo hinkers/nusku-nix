@@ -120,7 +120,9 @@ Scope {
                             status: Net.btLabel
                             active: Net.btOn
                             onToggled: Quickshell.execDetached(["nusku-quick", "toggle", "bluetooth"])
+                            // With several connected the button shows a count: name them here.
                             tooltip: (active ? "Turn Bluetooth off" : "Turn Bluetooth on")
+                                + (Net.btConnected.length > 1 ? " (connected: " + Net.btConnected.map(d => d.name).join(", ") + ")" : "")
                             pickTooltip: "Connect a Bluetooth device"
                             onPick: PanelState.page = "bluetooth"
                         }

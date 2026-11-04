@@ -34,8 +34,12 @@ in
     && !(builtins.elem "waybar" pkgNames) && !(hm.xdg.configFile ? "waybar/config.jsonc")
     && !(has "waybar" (builtins.readFile ../../config/niri/config.kdl));
   "shell: UPower on (the bar's battery)" = full.services.upower.enable;
-  "shell: no Wi-Fi or Bluetooth tray applets (quick settings has both)" =
-    builtins.all (f: has "Hidden=true" (cfgFile "autostart/${f}.desktop").text) [ "nm-applet" "blueman" ];
+  "shell: no Wi-Fi or Bluetooth tray icons, but blueman-applet still runs (the Bluetooth agent)" =
+    has "Hidden=true" (cfgFile "autostart/nm-applet.desktop").text
+    && !(hm.xdg.configFile ? "autostart/blueman.desktop")
+    # (dconf values are typed GVariants by now: compare the strings inside)
+    && map (v: v.value) hm.dconf.settings."org/blueman/general".plugin-list.value == [ "!StatusIcon" ]
+    && full.services.blueman.enable;
   "shell: Super + N and the bar pill open the panel; scripts called by name, no ~/.local/bin" =
     builtins.all (f: has ''"qs" "-c" "nusku" "ipc" "call" "panel" "toggle"'' (builtins.readFile (../../config/niri + "/${f}")))
       [ "binds-niri.kdl" "binds-nusku.kdl" ]

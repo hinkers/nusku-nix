@@ -23,7 +23,6 @@
 .config/hypr/hyprlock.conf
 .config/quickshell/nusku/
 .config/autostart/nm-applet.desktop
-.config/autostart/blueman.desktop
 .config/nusku/gpu.kdl
 .config/nusku/input.kdl
 .config/nusku/apps.kdl

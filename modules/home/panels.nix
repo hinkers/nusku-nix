@@ -50,17 +50,22 @@ in
     (lib.filesystem.listFilesRecursive shellDir)) // {
     "quickshell/nusku/Colors.qml".text = config.xdg.configFile."nusku/theme/Colors.qml".text;
   }
-  # No Wi-Fi or Bluetooth tray icons: quick settings (Super + N) has both. nm-applet comes with
-  # nm-connection-editor's package and blueman-applet with services.blueman; a Hidden entry of
-  # the same name in ~/.config/autostart switches each one's XDG autostart off.
-  // lib.genAttrs [ "autostart/nm-applet.desktop" "autostart/blueman.desktop" ] (_: {
-    text = ''
+  # No Wi-Fi tray icon: quick settings (Super + N) has it. nm-applet comes with
+  # nm-connection-editor's package; a Hidden entry of the same name in ~/.config/autostart
+  # switches its XDG autostart off.
+  // {
+    "autostart/nm-applet.desktop".text = ''
       [Desktop Entry]
       Type=Application
       Name=Not started (Nusku: quick settings has this)
       Hidden=true
     '';
-  });
+  };
+
+  # No Bluetooth tray icon either, but blueman-applet keeps running: it is also the Bluetooth
+  # agent that approves connections and pairing (without one, BlueZ refuses them). Its
+  # StatusIcon plugin is the tray icon; "!" switches a plugin off.
+  dconf.settings."org/blueman/general".plugin-list = [ "!StatusIcon" ];
 
   systemd.user.services.nusku-shell = {
     Unit = {

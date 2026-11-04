@@ -25,5 +25,9 @@ Singleton {
     readonly property bool btOn: adapter !== null && adapter.enabled
     readonly property var btConnected: Bluetooth.devices.values.filter(d => d.connected)
     readonly property string btIcon: !btOn ? "󰂲" : btConnected.length > 0 ? "󰂱" : "󰂯"
-    readonly property string btLabel: !btOn ? "Off" : btConnected.length > 0 ? btConnected.map(d => d.name).join(", ") : "On"
+    // Like Wi-Fi's network name: the device when one is connected, else how many.
+    readonly property string btLabel: !btOn ? "Off"
+        : btConnected.length === 0 ? "On"
+        : btConnected.length === 1 ? btConnected[0].name
+        : `${btConnected.length} connected`
 }
