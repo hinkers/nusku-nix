@@ -885,13 +885,13 @@ if ($niriUp) {
     Save-Screenshot 'fastfetch.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
-    # The app launcher (Super + Space), up from the bottom of the frame.
+    # The app launcher (Super + Space), down from under the bar.
     $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call launcher open >/dev/null')
     Start-Sleep -Seconds 4   # software rendering: give it time to map and slide out
     Save-Screenshot 'launcher.png'
     $null = Invoke-Remote ($envPreamble + $closeAll)
 
-    # The keybind search (Super + /) and the wallpaper picker (Super + W), up from the bottom.
+    # The keybind search (Super + /) and the wallpaper picker (Super + W), down from under the bar.
     $null = Invoke-Remote ($envPreamble + 'qs -c nusku ipc call keybinds open >/dev/null')
     Start-Sleep -Seconds 3
     Save-Screenshot 'keybinds.png'

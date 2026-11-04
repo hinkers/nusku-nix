@@ -1,4 +1,4 @@
-// A searchable list up from the bottom border (clipboard history, keybind search): type to
+// A searchable list down from under the bar (clipboard history, keybind search): type to
 // filter, arrows to move, Enter to pick, Delete to remove an entry (when `removable`), Esc to
 // close. `items` are objects with `title`, and optionally `subtitle`, `icon` (a glyph) and
 // `keys` (shown on the right).
@@ -62,7 +62,7 @@ PanelWindow {
 
     Drawer {
         id: drawer
-        edge: "bottom"
+        edge: "top"
         length: 640
         depth: win.rows * win.rowHeight + 48 + 3 * 16
         progress: win.menu.progress
@@ -71,6 +71,62 @@ PanelWindow {
             anchors.fill: parent
             anchors.margins: 16
             spacing: 16
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: 48
+                    radius: Theme.radiusLarge
+                    color: Colors.surface0
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        spacing: 12
+                        Icon { text: win.searchIcon; color: Colors.accent }
+                        TextInput {
+                            id: search
+                            Layout.fillWidth: true
+                            font.family: Theme.font
+                            font.pixelSize: Theme.fontSize + 1
+                            color: Colors.text
+                            selectionColor: Colors.accent
+                            clip: true
+                            onTextChanged: list.currentIndex = 0
+
+                            Keys.onEscapePressed: win.menu.open = false
+                            Keys.onReturnPressed: win.pick(win.results[list.currentIndex])
+                            Keys.onEnterPressed: win.pick(win.results[list.currentIndex])
+                            Keys.onUpPressed: list.currentIndex = Math.max(0, list.currentIndex - 1)
+                            Keys.onDownPressed: list.currentIndex = Math.min(list.count - 1, list.currentIndex + 1)
+                            Keys.onTabPressed: list.currentIndex = (list.currentIndex + 1) % Math.max(1, list.count)
+                            Keys.onDeletePressed: e => {
+                                if (win.removable && list.count > 0 && search.cursorPosition === search.text.length) {
+                                    win.removed(win.results[list.currentIndex]);
+                                    e.accepted = true;
+                                } else e.accepted = false;
+                            }
+
+                            Label {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: search.text === ""
+                                text: win.placeholder
+                                color: Colors.overlay1
+                            }
+                        }
+                    }
+                }
+                RowLayout {
+                    id: actionRow
+                    // Layouts fill by default; this one only takes what its buttons need.
+                    Layout.fillWidth: false
+                    visible: children.length > 0
+                    spacing: 8
+                }
+            }
 
             ListView {
                 id: list
@@ -81,8 +137,7 @@ PanelWindow {
                 currentIndex: 0
                 boundsBehavior: Flickable.StopAtBounds
                 highlightMoveDuration: 0
-                // The first entry sits nearest the search field.
-                verticalLayoutDirection: ListView.BottomToTop
+                // The first entry sits right under the search field.
                 highlight: Rectangle { radius: Theme.radius; color: Colors.surface0 }
 
                 delegate: Item {
@@ -140,62 +195,6 @@ PanelWindow {
                     visible: list.count === 0
                     text: win.empty
                     color: Colors.overlay1
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 48
-                    radius: Theme.radiusLarge
-                    color: Colors.surface0
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        spacing: 12
-                        Icon { text: win.searchIcon; color: Colors.accent }
-                        TextInput {
-                            id: search
-                            Layout.fillWidth: true
-                            font.family: Theme.font
-                            font.pixelSize: Theme.fontSize + 1
-                            color: Colors.text
-                            selectionColor: Colors.accent
-                            clip: true
-                            onTextChanged: list.currentIndex = 0
-
-                            Keys.onEscapePressed: win.menu.open = false
-                            Keys.onReturnPressed: win.pick(win.results[list.currentIndex])
-                            Keys.onEnterPressed: win.pick(win.results[list.currentIndex])
-                            Keys.onUpPressed: list.currentIndex = Math.min(list.count - 1, list.currentIndex + 1)
-                            Keys.onDownPressed: list.currentIndex = Math.max(0, list.currentIndex - 1)
-                            Keys.onTabPressed: list.currentIndex = (list.currentIndex + 1) % Math.max(1, list.count)
-                            Keys.onDeletePressed: e => {
-                                if (win.removable && list.count > 0 && search.cursorPosition === search.text.length) {
-                                    win.removed(win.results[list.currentIndex]);
-                                    e.accepted = true;
-                                } else e.accepted = false;
-                            }
-
-                            Label {
-                                anchors.verticalCenter: parent.verticalCenter
-                                visible: search.text === ""
-                                text: win.placeholder
-                                color: Colors.overlay1
-                            }
-                        }
-                    }
-                }
-                RowLayout {
-                    id: actionRow
-                    // Layouts fill by default; this one only takes what its buttons need.
-                    Layout.fillWidth: false
-                    visible: children.length > 0
-                    spacing: 8
                 }
             }
         }

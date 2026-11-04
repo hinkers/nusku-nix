@@ -1,4 +1,4 @@
-// Clipboard history (cliphist), up from the bottom: type to search, Enter copies the entry
+// Clipboard history (cliphist), down from under the bar: type to search, Enter copies the entry
 // back, Delete removes it, "Clear" empties the history. Super + V (Nusku's binds).
 import QtQuick
 import Quickshell

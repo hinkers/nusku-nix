@@ -1,4 +1,4 @@
-// The wallpaper picker, up from the bottom: a row of thumbnails (the current one marked),
+// The wallpaper picker, down from under the bar: a row of thumbnails (the current one marked),
 // left/right to move, Enter or a click to set it, Esc to close. The chips pick which monitor
 // (all of them by default). nusku-wallpaper does the setting. Super + W (Nusku's binds).
 import QtQuick
@@ -63,7 +63,7 @@ PanelWindow {
 
     Drawer {
         id: drawer
-        edge: "bottom"
+        edge: "top"
         length: Math.min(win.width - 2 * Theme.frame - 2 * Theme.frameRadius - 80, 1100)
         // The thumbnails and their names, plus the monitor chips when there's more than one.
         depth: 124 + 26 + 2 * 16 + (Quickshell.screens.length > 1 ? 42 : 0)

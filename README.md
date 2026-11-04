@@ -126,7 +126,7 @@ the screen (windows sit inside it), and every menu grows out of the frame:
 - The clock opens the calendar, down from the top: days with events have a dot, pick a day to
   see them. Events come from GNOME Calendar's accounts (Online Accounts: Google, Nextcloud);
   pick one, or Open Calendar, to see it there. Arrows, PgUp/PgDn and Home move about.
-- Super + Space opens the app launcher, up from the bottom: type, arrows, Enter. The same
+- Super + Space opens the app launcher, down from the top: type, arrows, Enter. The same
   place has clipboard history (Super + V: Enter copies an entry back, Delete removes it), the
   wallpaper picker (Super + W) and the keybind search (Super + /: Enter runs the bind).
 - Super + Escape (or the power button in quick settings) opens the power menu, in from the

@@ -1,4 +1,4 @@
-// The app launcher, up from the bottom border: type to search the installed apps (name,
+// The app launcher, down from under the bar: type to search the installed apps (name,
 // keywords, description), arrows to move, Enter to start, Esc to close. Apps that run in a
 // terminal open in kitty. Super + Space (Nusku's binds) or Super + D (niri's).
 import QtQuick
@@ -66,7 +66,7 @@ PanelWindow {
 
     Drawer {
         id: drawer
-        edge: "bottom"
+        edge: "top"
         length: 560
         depth: win.rows * win.rowHeight + 48 + 3 * 16
         progress: win.menu.progress
@@ -75,6 +75,46 @@ PanelWindow {
             anchors.fill: parent
             anchors.margins: 16
             spacing: 16
+
+            // The search field, under the bar.
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 48
+                radius: Theme.radiusLarge
+                color: Colors.surface0
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    spacing: 12
+                    Icon { text: "󰍉"; color: Colors.accent }
+                    TextInput {
+                        id: search
+                        Layout.fillWidth: true
+                        font.family: Theme.font
+                        font.pixelSize: Theme.fontSize + 1
+                        color: Colors.text
+                        selectionColor: Colors.accent
+                        clip: true
+                        onTextChanged: list.currentIndex = 0
+
+                        Keys.onEscapePressed: win.menu.open = false
+                        Keys.onReturnPressed: win.launch(win.results[list.currentIndex])
+                        Keys.onEnterPressed: win.launch(win.results[list.currentIndex])
+                        Keys.onUpPressed: list.currentIndex = Math.max(0, list.currentIndex - 1)
+                        Keys.onDownPressed: list.currentIndex = Math.min(list.count - 1, list.currentIndex + 1)
+                        Keys.onTabPressed: list.currentIndex = (list.currentIndex + 1) % Math.max(1, list.count)
+
+                        Label {
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: search.text === ""
+                            text: "Search apps"
+                            color: Colors.overlay1
+                        }
+                    }
+                }
+            }
 
             ListView {
                 id: list
@@ -85,8 +125,7 @@ PanelWindow {
                 currentIndex: 0
                 boundsBehavior: Flickable.StopAtBounds
                 highlightMoveDuration: 0
-                // The best match sits nearest the search field.
-                verticalLayoutDirection: ListView.BottomToTop
+                // The best match sits right under the search field.
                 highlight: Rectangle { radius: Theme.radius; color: Colors.surface0 }
 
                 delegate: Item {
@@ -137,47 +176,6 @@ PanelWindow {
                     visible: list.count === 0
                     text: "No apps match"
                     color: Colors.overlay1
-                }
-            }
-
-            // The search field, nearest the bottom border.
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 48
-                radius: Theme.radiusLarge
-                color: Colors.surface0
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    spacing: 12
-                    Icon { text: "󰍉"; color: Colors.accent }
-                    TextInput {
-                        id: search
-                        Layout.fillWidth: true
-                        font.family: Theme.font
-                        font.pixelSize: Theme.fontSize + 1
-                        color: Colors.text
-                        selectionColor: Colors.accent
-                        clip: true
-                        onTextChanged: list.currentIndex = 0
-
-                        Keys.onEscapePressed: win.menu.open = false
-                        Keys.onReturnPressed: win.launch(win.results[list.currentIndex])
-                        Keys.onEnterPressed: win.launch(win.results[list.currentIndex])
-                        // Up moves towards the top of the screen: away from the best match.
-                        Keys.onUpPressed: list.currentIndex = Math.min(list.count - 1, list.currentIndex + 1)
-                        Keys.onDownPressed: list.currentIndex = Math.max(0, list.currentIndex - 1)
-                        Keys.onTabPressed: list.currentIndex = (list.currentIndex + 1) % Math.max(1, list.count)
-
-                        Label {
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: search.text === ""
-                            text: "Search apps"
-                            color: Colors.overlay1
-                        }
-                    }
                 }
             }
         }

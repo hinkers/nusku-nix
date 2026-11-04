@@ -58,7 +58,7 @@ in
   "shell: every menu grows out of the frame (drawers) and one is open at a time" =
     builtins.all (f: has "Drawer {" (qml "menus/${f}")) [ "Calendar.qml" "Launcher.qml" "Session.qml" "Wallpaper.qml" "PickerMenu.qml" ]
     && builtins.all (f: has "PickerMenu {" (qml "menus/${f}")) [ "Clipboard.qml" "Keybinds.qml" ]
-    && has "edge: \"top\"" (qml "menus/Calendar.qml") && has "edge: \"bottom\"" (qml "menus/Launcher.qml")
+    && has "edge: \"top\"" (qml "menus/Calendar.qml") && has "edge: \"top\"" (qml "menus/Launcher.qml")
     && has "edge: \"right\"" (qml "menus/Session.qml")
     && has "function closeAll" (qml "services/Menus.qml");
   "shell: it is the notification server, with Do Not Disturb over IPC" =

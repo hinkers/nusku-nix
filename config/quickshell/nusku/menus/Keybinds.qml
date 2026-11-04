@@ -1,4 +1,4 @@
-// The keybind search, up from the bottom: every niri bind with what it does (its
+// The keybind search, down from under the bar: every niri bind with what it does (its
 // hotkey-overlay-title) and its keys. Type to search, Enter runs the bind. Super + /.
 // nusku-menu-keybinds reads niri's config (config.kdl and its includes) and runs the picks.
 import QtQuick
