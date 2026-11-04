@@ -12,13 +12,14 @@
     { "type": "os", "key": " OS" },
     { "type": "kernel", "key": " Kernel" },
     { "type": "uptime", "key": " Uptime" },
-    { "type": "packages", "key": " Packages" },
     { "type": "shell", "key": " Shell" },
     { "type": "de", "key": " DE" },
     { "type": "wm", "key": " WM" },
     { "type": "terminal", "key": " Terminal" },
-    { "type": "cpu", "key": " CPU" },
-    { "type": "gpu", "key": " GPU" },
+    // Short names: the CPU model without the marketing words (e.g. "Intel i7-1260P"), the GPU's
+    // name without its vendor, clock and type.
+    { "type": "command", "key": " CPU", "text": "sed -n \"s/^model name[[:space:]]*: //p\" /proc/cpuinfo | head -n1 | sed -E \"s/\\((R|TM)\\)//g; s/[0-9]+(st|nd|rd|th) Gen //; s/ (CPU|Processor)//g; s/ @.*//; s/ (w\\/|with) .*//; s/Core //; s/ [0-9]+-Core//; s/  +/ /g; s/ +$//\"" },
+    { "type": "gpu", "key": " GPU", "format": "{name}" },
     { "type": "memory", "key": " Memory" },
     { "type": "disk", "key": " Disk" },
     "break",

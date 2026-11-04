@@ -99,6 +99,14 @@ window-rule {
     open-floating true
 }
 
+// RuneLite (Old School RuneScape, started by Bolt): the game plus its sidebar is wider than
+// half the screen, so it opens as a full-width column instead of overflowing a half one.
+window-rule {
+    match app-id=r#"(?i)runelite"#
+    match title="^RuneLite"
+    open-maximized true
+}
+
 // Browsers' picture-in-picture video (Firefox and LibreWolf: "Picture-in-Picture"; Chromium and
 // Brave: "Picture in picture") floats in the bottom-right corner, without taking focus.
 window-rule {

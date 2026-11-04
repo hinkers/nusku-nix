@@ -86,10 +86,11 @@ krabby_stub() { # $1 = shell body
     grep -qF 'etc/profile.d/hm-session-vars.sh' config/zsh/zprofile
 }
 
-@test "fastfetch config is valid JSONC with the original module list and icons" {
+@test "fastfetch config is valid JSONC with its module list and icons" {
     grep -v '^[[:space:]]*//' config/fastfetch/config.jsonc | jq -e . >/dev/null
     run bash -c "grep -v '^[[:space:]]*//' config/fastfetch/config.jsonc | jq -r '[.modules[] | if type == \"object\" then .type else . end] | join(\" \")'"
-    [ "$output" = "title separator os kernel uptime packages shell de wm terminal cpu gpu memory disk break colors" ]
+    # the CPU is a command module (a short name from /proc/cpuinfo); no packages line
+    [ "$output" = "title separator os kernel uptime shell de wm terminal command gpu memory disk break colors" ]
     # every stats module carries a key icon
     run bash -c "grep -v '^[[:space:]]*//' config/fastfetch/config.jsonc | jq -r '[.modules[] | select(type == \"object\") | select((.key // \"\") == \"\")] | length'"
     [ "$output" = "0" ]
