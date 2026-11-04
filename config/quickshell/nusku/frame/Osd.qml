@@ -29,12 +29,13 @@ PanelWindow {
     Timer { running: true; interval: 3000; onTriggered: win.ready = true }
     Connections {
         target: win.sink ? win.sink.audio : null
-        function onVolumeChanged() { if (win.ready) Osd.show("volume"); }
-        function onMutedChanged() { if (win.ready) Osd.show("volume"); }
+        // Not while the volume menu is out: it shows the same thing.
+        function onVolumeChanged() { if (win.ready && !Menus.volume.open) Osd.show("volume"); }
+        function onMutedChanged() { if (win.ready && !Menus.volume.open) Osd.show("volume"); }
     }
     Connections {
         target: win.source ? win.source.audio : null
-        function onMutedChanged() { if (win.ready) Osd.show("mic"); }
+        function onMutedChanged() { if (win.ready && !Menus.volume.open) Osd.show("mic"); }
     }
 
     readonly property bool muted: Osd.kind === "volume" ? (sink && sink.audio ? sink.audio.muted : false)

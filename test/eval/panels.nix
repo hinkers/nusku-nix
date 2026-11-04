@@ -34,6 +34,11 @@ in
     && !(builtins.elem "waybar" pkgNames) && !(hm.xdg.configFile ? "waybar/config.jsonc")
     && !(has "waybar" (builtins.readFile ../../config/niri/config.kdl));
   "shell: UPower on (the bar's battery)" = full.services.upower.enable;
+  "shell: the bar's speaker: scroll for volume, middle-click mute, click for the volume menu" =
+    has "Audio.nudge" (qml "bar/Volume.qml") && has "Audio.toggleMute" (qml "bar/Volume.qml")
+    && has "Menus.volume.toggleAt" (qml "bar/Volume.qml")
+    && has "preferredDefaultAudioSink" (qml "menus/VolumeMenu.qml") && has "Audio.streams" (qml "menus/VolumeMenu.qml")
+    && has "PwNodeType.AudioOutStream" (qml "services/Audio.qml");
   "shell: a click on the battery opens its details under it" =
     has "Menus.battery.toggleAt" (qml "bar/Battery.qml")
     && has "edge: \"top\"" (qml "menus/BatteryMenu.qml") && has "healthPercentage" (qml "menus/BatteryMenu.qml")

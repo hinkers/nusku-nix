@@ -40,6 +40,8 @@ ShellRoot {
     Session {}
     // The battery's details, under the bar's battery.
     BatteryMenu {}
+    // Outputs, inputs and each app's volume, under the bar's speaker.
+    VolumeMenu {}
     // The volume / brightness pop-up (right).
     Osd {}
 }

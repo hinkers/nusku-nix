@@ -52,6 +52,7 @@ PanelWindow {
         anchors.rightMargin: 6
         spacing: 4
         Tray { bar: bar }
+        Volume { screen: bar.screen }
         Battery { screen: bar.screen }
         QuickPill { screen: bar.screen }
     }
