@@ -57,7 +57,8 @@ in
       PartOf = [ "graphical-session.target" ];
       After = [ "graphical-session.target" ];
       # A rebuild that changes the shell restarts it (it also reloads edited files by itself).
-      X-Restart-Triggers = [ "${shellDir}" config.xdg.configFile."quickshell/nusku/Colors.qml".text ];
+      # One line each: the colours by their hash (the text itself would break the unit file).
+      X-Restart-Triggers = [ "${shellDir}" (builtins.hashString "sha256" config.xdg.configFile."quickshell/nusku/Colors.qml".text) ];
     };
     Service = {
       ExecStart = "${pkgs.quickshell}/bin/qs -c nusku";

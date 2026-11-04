@@ -26,7 +26,9 @@ in
     has "/bin/qs -c nusku" (toString shell.Service.ExecStart)
     && builtins.elem "graphical-session.target" shell.Install.WantedBy
     && builtins.elem "graphical-session.target" shell.Unit.PartOf
-    && shell.Unit.X-Restart-Triggers != [ ];
+    && shell.Unit.X-Restart-Triggers != [ ]
+    # a newline in any value breaks the unit file (sd-switch can't load it)
+    && builtins.all (v: !(has "\n" (toString v))) (lib.flatten (map builtins.attrValues [ shell.Unit shell.Service shell.Install ]));
   "shell: Waybar and swaync are gone" =
     !(hm.services.swaync.enable or false) && !hm.programs.waybar.enable
     && !(builtins.elem "waybar" pkgNames) && !(hm.xdg.configFile ? "waybar/config.jsonc")
