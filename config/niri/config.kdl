@@ -99,6 +99,18 @@ window-rule {
     open-floating true
 }
 
+// Browsers' picture-in-picture video (Firefox and LibreWolf: "Picture-in-Picture"; Chromium and
+// Brave: "Picture in picture") floats in the bottom-right corner, without taking focus.
+window-rule {
+    match title="^Picture-in-Picture$"
+    match title="^Picture in picture$"
+    open-floating true
+    open-focused false
+    default-column-width { fixed 480; }
+    default-window-height { fixed 270; }
+    default-floating-position x=32 y=32 relative-to="bottom-right"
+}
+
 // --- Includes (order matters: later wins) ---------------------------------------------------
 
 // The keybinds. Two layouts ship with Nusku; include exactly one:
