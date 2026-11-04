@@ -97,7 +97,8 @@ The wallpaper picker (Super + W) is instant and isn't part of the build; your ch
 ## The desktop
 
 niri lays windows out in columns on an endless strip that scrolls sideways, with workspaces
-stacked above and below; Super + O shows them all. The keybinds (`config/niri/binds-nusku.kdl`):
+stacked above and below; Super + O shows them all (the hot corner is off, so the mouse in a
+corner doesn't). The keybinds (`config/niri/binds-nusku.kdl`):
 
 - Super + Return terminal, Super + Space app launcher, Super + E files, Super + B browser
 - Super + H J K L or the arrows: move between windows; add Shift to move the window
@@ -106,6 +107,8 @@ stacked above and below; Super + O shows them all. The keybinds (`config/niri/bi
 - Super + Q close, Super + F maximize (full width), Super + M maximize to the edges, Super +
   Shift + F fullscreen, Super + T float, Super + Shift + T column as tabs,
   Super + P cycle the column width, Super + Ctrl + arrows resize
+- Super + [ / ] stack the window into the column on that side (or out of it), Super + , pull
+  the next window into this column, Super + . push the bottom one out
 - Super + N quick settings, Super + V clipboard, Super + W wallpaper, Super + Escape power
   menu, Super + Alt + L lock
 - Super + / searches every bind (and runs the one you pick); Super + Shift + / is niri's list

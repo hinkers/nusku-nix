@@ -15,6 +15,13 @@ input {
     focus-follows-mouse max-scroll-amount="0%"
 }
 
+// No hot corner: pushing the mouse into a corner doesn't open the overview (Super + O does).
+gestures {
+    hot-corners {
+        off
+    }
+}
+
 // Every output at its preferred mode with niri's automatic scale. Built-in laptop screens get
 // a scale in ../nusku/gpu.kdl; set your own outputs in local.kdl, e.g.
 //   output "DP-1" { mode "2560x1440@144"; scale 1; position x=0 y=0; }

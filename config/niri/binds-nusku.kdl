@@ -50,6 +50,14 @@ binds {
     Mod+Shift+K hotkey-overlay-title="Move window up"    { move-window-up; }
     Mod+Shift+J hotkey-overlay-title="Move window down"  { move-window-down; }
 
+    // Stack windows in one column (niri's consume and expel): [ and ] pull the next window in
+    // from that side, or push the focused one out; , pulls the window to the right in under it;
+    // . pushes the bottom window out into its own column.
+    Mod+BracketLeft  hotkey-overlay-title="Stack into the column on the left (or out of it)" { consume-or-expel-window-left; }
+    Mod+BracketRight hotkey-overlay-title="Stack into the column on the right (or out of it)" { consume-or-expel-window-right; }
+    Mod+Comma  hotkey-overlay-title="Pull the next window into this column" { consume-window-into-column; }
+    Mod+Period hotkey-overlay-title="Push the bottom window out of this column" { expel-window-from-column; }
+
     // Resize (repeats while held). Drag with Super + left/right mouse moves/resizes (built in).
     Mod+Ctrl+Left  hotkey-overlay-title="Narrower" { set-column-width "-5%"; }
     Mod+Ctrl+Right hotkey-overlay-title="Wider"    { set-column-width "+5%"; }
