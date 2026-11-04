@@ -573,16 +573,28 @@ r=$(niri msg --json keyboard-layouts 2>&1 | jq -r '.names | join(",")'); echo "n
 [ -n "$r" ] && [ "$r" != null ] || exit 3
 '@ -replace '@KM@', $settingsObj.keymap)
 if (Test-App 'sunshine') {
-    # Its unit is WantedBy graphical-session.target, which niri-session reaches.
-    Invoke-Check 'sunshine: started with the session' 'systemctl --user is-active sunshine'
+    # Opt-in: not running after login; the launcher's "Sunshine" entry starts it, and again stops it.
+    Invoke-Check 'sunshine: not at login; the launcher toggle starts and stops it' @'
+s=$(systemctl --user is-active sunshine); echo "after login: $s"; [ "$s" != active ] || exit 1
+grep -q nusku-toggle-service ~/.nix-profile/share/applications/dev.lizardbyte.app.Sunshine.desktop /etc/profiles/per-user/$(id -un)/share/applications/dev.lizardbyte.app.Sunshine.desktop 2>/dev/null || { echo 'no launcher entry'; exit 1; }
+nusku-toggle-service sunshine Sunshine; sleep 3
+s=$(systemctl --user is-active sunshine); echo "toggled on: $s"; [ "$s" = active ] || exit 1
+nusku-toggle-service sunshine Sunshine; sleep 2
+s=$(systemctl --user is-active sunshine); echo "toggled off: $s"; [ "$s" != active ]
+'@
 }
 if (Test-App 'wayvnc') {
-    # Started with the session, listening on every address (the firewall opens 5900), with keys.
-    Invoke-Check 'wayvnc: running, on 0.0.0.0:5900, with its keys' @'
-s=$(systemctl --user is-active wayvnc); echo "wayvnc: $s"; [ "$s" = active ] || exit 1
+    # Opt-in: not running after login; the launcher's "Screen sharing (VNC)" starts it, on every
+    # address (the firewall opens 5900), with its keys; again stops it.
+    Invoke-Check 'wayvnc: not at login; toggled on it listens on 0.0.0.0:5900 with its keys' @'
+s=$(systemctl --user is-active wayvnc); echo "after login: $s"; [ "$s" != active ] || exit 1
+nusku-toggle-service wayvnc "Screen sharing"; sleep 3
+s=$(systemctl --user is-active wayvnc); echo "toggled on: $s"; [ "$s" = active ] || exit 1
 ss -tln | grep -E '0\.0\.0\.0:5900|\*:5900' || { echo 'not listening on 5900'; exit 1; }
 ls ~/.local/state/nusku/wayvnc/ | tr '\n' ' '
-[ -s ~/.local/state/nusku/wayvnc/tls_cert.pem ] && [ -s ~/.local/state/nusku/wayvnc/rsa_key.pem ]
+[ -s ~/.local/state/nusku/wayvnc/tls_cert.pem ] && [ -s ~/.local/state/nusku/wayvnc/rsa_key.pem ] || exit 1
+nusku-toggle-service wayvnc "Screen sharing"; sleep 1
+[ "$(systemctl --user is-active wayvnc)" != active ]
 '@
 }
 Invoke-Check 'session PATH (niri children)' @'

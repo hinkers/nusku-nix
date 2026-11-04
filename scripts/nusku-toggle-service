@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# nusku-toggle-service UNIT LABEL [WHAT-IT-DOES]: start the user service UNIT if it's stopped,
+# stop it if it's running, and say which with a notification. The launcher's Sunshine and
+# screen sharing (wayvnc) entries call it: those don't start with the session, you opt in.
+set -uo pipefail
+
+unit="${1:?which unit?}"
+label="${2:-$unit}"
+running="${3:-}"
+
+say() { notify-send -a Nusku -u low "$@" 2>/dev/null || true; }
+
+if systemctl --user is-active --quiet "$unit"; then
+    systemctl --user stop "$unit"
+    say "$label" "Stopped."
+elif systemctl --user start "$unit"; then
+    say "$label" "Started.${running:+ $running} Open it again from the launcher to stop it."
+else
+    say -u normal "$label" "Couldn't start it: see systemctl --user status $unit"
+    exit 1
+fi

@@ -15,7 +15,7 @@
     ./neovim.nix
     ./langs.nix
     ./commands.nix
-    ./wayvnc.nix
+    ./sharing.nix
   ];
 
   home.username = osConfig.nusku.user;

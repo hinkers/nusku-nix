@@ -273,17 +273,21 @@ over the machine. Log out and back in to use `docker` without sudo. Compose is t
 
 ### Sunshine, Moonlight and wayvnc
 
-- **Sunshine** streams this PC to Moonlight on another device. It starts at login. Open
+Neither Sunshine nor wayvnc runs until you ask: open the launcher (Super + Space) and pick
+**Sunshine** or **Screen sharing (VNC)** to start it, and pick it again to stop it. A
+notification says which. Both stop at logout.
+
+- **Sunshine** streams this PC to Moonlight on another device. With it started, open
   https://localhost:47990 on this PC to create its login, then pick this PC in Moonlight and type
   the PIN it shows into that page. Only the streaming ports are opened; the settings page stays
   reachable from this PC only.
 - The build may print warnings about obsolete Avahi options when Sunshine is picked. They come
   from nixpkgs' own Sunshine module and are harmless.
-- **wayvnc** shares this screen. It starts at login and listens on port 5900, which is opened in
-  the firewall. Connect with a VNC viewer (Remmina, TigerVNC) to `this-pc:5900` and log in with
-  this PC's user name and password. The connection is always encrypted; the viewer may ask you
-  to accept the PC's certificate the first time. Viewers that only know plain VNC passwords
-  can't connect. `systemctl --user status wayvnc` shows whether it's running.
+- **wayvnc** shares this screen on port 5900, which is opened in the firewall. With it started,
+  connect with a VNC viewer (Remmina, TigerVNC) to `this-pc:5900` and log in with this PC's
+  user name and password. The connection is always encrypted; the viewer may ask you to accept
+  the PC's certificate the first time. Viewers that only know plain VNC passwords can't
+  connect.
 
 ### Old School RuneScape
 

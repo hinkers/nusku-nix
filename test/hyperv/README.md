@@ -227,8 +227,8 @@ screenshots, or the VM itself with `-KeepRunning`.
   Check it on a real machine.
 - **An unmanaged Firefox `profiles.ini`:** create `~/.config/mozilla/firefox/profiles.ini` by
   hand, then run `nusku-rebuild`. The rebuild reports the collision the README describes.
-- **wayvnc (`-Full`):** it runs and listens on every address (`systemctl --user status wayvnc`,
-  `ss -tlnp | grep 5900`), and a viewer can log in with the VM user's password.
+- **wayvnc (`-Full`):** start it from the launcher ("Screen sharing (VNC)"), then a viewer can
+  log in with the VM user's password (`ss -tlnp | grep 5900`).
 
 Skipped, because the VM can't show them:
 

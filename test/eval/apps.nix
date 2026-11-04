@@ -96,16 +96,18 @@ in
     && !(builtins.elem 53317 (tcp full));
   "sunshine: service with KMS capture, avahi on, nusku-arch's ports (settings page stays local)" =
     sunshine.services.sunshine.enable && sunshine.services.sunshine.capSysAdmin
-    && sunshine.services.sunshine.autoStart
     && sunshine.services.avahi.enable
     && !sunshine.services.avahi.settings.publish."disable-user-service-publishing"
     && hasAll [ 47984 47989 48010 ] (tcp sunshine) && !(builtins.elem 47990 (tcp sunshine))
     && hasAll [ 47998 47999 48000 48002 48010 5353 ] (udp sunshine);
-  # niri-session reaches graphical-session.target, so the unit's WantedBy starts it: no
-  # startup command of its own.
-  "sunshine: started with the session (user unit WantedBy graphical-session.target)" =
-    builtins.elem "graphical-session.target" sunshine.systemd.user.services.sunshine.wantedBy
-    && !(lib.hasInfix "sunshine" (autostart sunshine));
+  # Opt-in: not started with the session; the launcher's "Sunshine" entry starts or stops it.
+  "sunshine: not at login; a launcher entry (replacing Sunshine's own) starts or stops it" =
+    let h = hmOf sunshine; e = h.xdg.desktopEntries; in
+    !sunshine.services.sunshine.autoStart
+    && !(builtins.elem "graphical-session.target" (sunshine.systemd.user.services.sunshine.wantedBy or [ ]))
+    && !(lib.hasInfix "sunshine" (autostart sunshine))
+    && lib.hasInfix "nusku-toggle-service sunshine" e."dev.lizardbyte.app.Sunshine".exec
+    && e."dev.lizardbyte.app.Sunshine.terminal".noDisplay && e."dev.lizardbyte.app.Sunshine.kwin".noDisplay;
   "obsidian and yazi: their apps.kdl blocks are kept together" =
     let c = pick [ "yazi" "obsidian" ]; in
     lib.hasInfix "kitty\" \"-e\" \"yazi" (autostart c) && lib.hasInfix "nusku-obsidian-theme" (autostart c);
@@ -120,9 +122,11 @@ in
     let c = pick [ "wayvnc" ]; in builtins.elem "wayvnc" (sysNames c) && builtins.elem 5900 (tcp c)
     && c.security.pam.services ? wayvnc
     && !(builtins.elem 5900 (tcp min)) && !(min.security.pam.services ? wayvnc);
-  "wayvnc: a user service started with the session, on every address, PAM login, encrypted" =
+  "wayvnc: a user service, not at login (a launcher entry), on every address, PAM, encrypted" =
     let h = hmOf (pick [ "wayvnc" ]); w = h.services.wayvnc; in
-    w.enable && w.autoStart && w.settings.address == "0.0.0.0" && w.settings.port == 5900
+    w.enable && !w.autoStart && w.settings.address == "0.0.0.0" && w.settings.port == 5900
+    && !(h.systemd.user.services.wayvnc ? Install && builtins.elem "graphical-session.target" (h.systemd.user.services.wayvnc.Install.WantedBy or [ ]))
+    && lib.hasInfix "nusku-toggle-service wayvnc" h.xdg.desktopEntries.nusku-wayvnc.exec
     && w.settings.enable_auth && w.settings.enable_pam
     && lib.hasSuffix "/nusku/wayvnc/tls_cert.pem" w.settings.certificate_file
     && lib.hasSuffix "/nusku/wayvnc/rsa_key.pem" w.settings.rsa_private_key_file

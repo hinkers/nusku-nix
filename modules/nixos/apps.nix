@@ -96,14 +96,14 @@ let
       users.users.${cfg.user}.extraGroups = [ "gamemode" ];
     };
 
-    # Starts with the niri session (its user unit is WantedBy graphical-session.target, which
-    # niri-session reaches); Moonlight finds it over mDNS (Avahi). Ports are
-    # nusku-arch's UFW rules: the streaming ports only, so the settings page (47990) stays
+    # Not at login: you opt in with the launcher's "Sunshine" entry (modules/home/sharing.nix),
+    # which starts its user service, or stops it. Moonlight finds it over mDNS (Avahi). Ports
+    # are nusku-arch's UFW rules: the streaming ports only, so the settings page (47990) stays
     # reachable from this PC alone (openFirewall would open it too).
     sunshine = {
       services.sunshine = {
         enable = true;
-        autoStart = true;
+        autoStart = false;
         capSysAdmin = true; # KMS screen capture
       };
       services.avahi.enable = true;
