@@ -34,6 +34,8 @@ in
     && !(builtins.elem "waybar" pkgNames) && !(hm.xdg.configFile ? "waybar/config.jsonc")
     && !(has "waybar" (builtins.readFile ../../config/niri/config.kdl));
   "shell: UPower on (the bar's battery)" = full.services.upower.enable;
+  "shell: no Wi-Fi or Bluetooth tray applets (quick settings has both)" =
+    builtins.all (f: has "Hidden=true" (cfgFile "autostart/${f}.desktop").text) [ "nm-applet" "blueman" ];
   "shell: Super + N and the bar pill open the panel; scripts called by name, no ~/.local/bin" =
     builtins.all (f: has ''"qs" "-c" "nusku" "ipc" "call" "panel" "toggle"'' (builtins.readFile (../../config/niri + "/${f}")))
       [ "binds-niri.kdl" "binds-nusku.kdl" ]
