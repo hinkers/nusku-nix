@@ -34,6 +34,10 @@ in
     && !(builtins.elem "waybar" pkgNames) && !(hm.xdg.configFile ? "waybar/config.jsonc")
     && !(has "waybar" (builtins.readFile ../../config/niri/config.kdl));
   "shell: UPower on (the bar's battery)" = full.services.upower.enable;
+  "shell: a click on the battery opens its details under it" =
+    has "Menus.battery.toggleAt" (qml "bar/Battery.qml")
+    && has "edge: \"top\"" (qml "menus/BatteryMenu.qml") && has "healthPercentage" (qml "menus/BatteryMenu.qml")
+    && has "BatteryMenu {}" (qml "shell.qml");
   "shell: no Wi-Fi or Bluetooth tray icons, but blueman-applet still runs (the Bluetooth agent)" =
     has "Hidden=true" (cfgFile "autostart/nm-applet.desktop").text
     && !(hm.xdg.configFile ? "autostart/blueman.desktop")

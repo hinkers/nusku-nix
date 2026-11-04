@@ -10,6 +10,9 @@ Scope {
     required property string name
     property bool open: false
     property ShellScreen screen: Quickshell.screens[0] ?? null
+    // Where along the bar it drops from (x on the screen), for menus under a bar item; -1: the
+    // middle.
+    property real anchor: -1
     property real progress: open ? 1 : 0
     Behavior on progress {
         NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
@@ -18,6 +21,11 @@ Scope {
     signal opened()
     onOpenChanged: if (open) opened()
 
+    // Open on screen `s` under bar position `x` (or close it if it is already open there).
+    function toggleAt(s, x) {
+        if (!(open && screen === s)) anchor = x;
+        toggleOn(s);
+    }
     function toggleOn(s) {
         if (open && screen === s) { open = false; return; }
         screen = s;

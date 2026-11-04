@@ -15,7 +15,9 @@ Singleton {
     readonly property DrawerState clipboard: DrawerState { name: "clipboard"; onOpened: root.closeAll(this) }
     readonly property DrawerState wallpaper: DrawerState { name: "wallpaper"; onOpened: root.closeAll(this) }
     readonly property DrawerState keybinds: DrawerState { name: "keybinds"; onOpened: root.closeAll(this) }
-    readonly property list<DrawerState> all: [calendar, launcher, session, clipboard, wallpaper, keybinds]
+    // Down from under the bar's battery: charge, time left, health, other devices' batteries.
+    readonly property DrawerState battery: DrawerState { name: "battery"; onOpened: root.closeAll(this) }
+    readonly property list<DrawerState> all: [calendar, launcher, session, clipboard, wallpaper, keybinds, battery]
     readonly property bool anyOpen: PanelState.open || all.some(m => m.open)
 
     // Close every menu but `keep` (null: all of them).

@@ -114,6 +114,16 @@ window-rule {
     open-maximized true
 }
 
+// Firefox (and LibreWolf) remember being maximized and ask for it again, which niri takes as
+// maximized to the edges (Super + M). Open them as a full-width column instead (Super + F).
+// Not the picture-in-picture window: that floats (below).
+window-rule {
+    match app-id="^(firefox|librewolf)$"
+    exclude title="^Picture-in-Picture$"
+    open-maximized-to-edges false
+    open-maximized true
+}
+
 // Browsers' picture-in-picture video (Firefox and LibreWolf: "Picture-in-Picture"; Chromium and
 // Brave: "Picture in picture") floats in the bottom-right corner, without taking focus.
 window-rule {

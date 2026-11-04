@@ -38,6 +38,8 @@ ShellRoot {
     Wallpaper {}
     Keybinds {}
     Session {}
+    // The battery's details, under the bar's battery.
+    BatteryMenu {}
     // The volume / brightness pop-up (right).
     Osd {}
 }

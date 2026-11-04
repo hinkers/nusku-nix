@@ -52,7 +52,7 @@ PanelWindow {
         anchors.rightMargin: 6
         spacing: 4
         Tray { bar: bar }
-        Battery {}
+        Battery { screen: bar.screen }
         QuickPill { screen: bar.screen }
     }
 }
