@@ -15,7 +15,8 @@ input {
     focus-follows-mouse max-scroll-amount="0%"
 }
 
-// No hot corner: pushing the mouse into a corner doesn't open the overview (Super + O does).
+// No hot corner: pushing the mouse into a corner doesn't open the overview. Super + O does, and
+// so does a click in the top-left corner (the bar, config/quickshell/nusku/bar/Bar.qml).
 gestures {
     hot-corners {
         off

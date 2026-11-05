@@ -26,6 +26,17 @@ PanelWindow {
         color: Theme.shellColor
     }
 
+    // The top-left corner: a click there opens (or closes) niri's overview. The pointer stops at
+    // the screen's edge, so flicking it into the corner and clicking lands here.
+    MouseArea {
+        id: corner
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 6
+        onClicked: Quickshell.execDetached(["niri", "msg", "action", "toggle-overview"])
+    }
+
     RowLayout {
         anchors.left: parent.left
         anchors.right: centre.left
