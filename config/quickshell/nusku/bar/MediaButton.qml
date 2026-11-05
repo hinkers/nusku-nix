@@ -13,7 +13,9 @@ Rectangle {
     required property ShellScreen screen
     readonly property var player: Media.player
     implicitHeight: Theme.barHeight - 8
-    implicitWidth: row.implicitWidth + 20
+    // Just the icon (nothing playing, or no title): the same size as the launcher button on
+    // the clock's other side, so the two match.
+    implicitWidth: title.visible ? row.implicitWidth + 20 : implicitHeight + 6
     radius: Theme.radius
     color: mouse.containsMouse || (Menus.media.open && Menus.media.screen === screen) ? Colors.surface1 : Colors.surface0
 
@@ -22,10 +24,15 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 8
         Icon {
+            id: icon
             text: root.player && root.player.isPlaying ? "󰏤" : "󰎆"
             color: root.player ? Colors.accent : Colors.overlay1
+            // Centre the glyph's ink, not its advance: these glyphs have more room on the left.
+            Layout.leftMargin: -2 * (ink.tightBoundingRect.x + ink.tightBoundingRect.width / 2 - ink.advanceWidth / 2)
+            TextMetrics { id: ink; font: icon.font; text: icon.text }
         }
         Label {
+            id: title
             visible: root.player !== null && text !== ""
             Layout.maximumWidth: 220
             text: root.player ? (root.player.trackTitle || root.player.identity) : ""
