@@ -1,5 +1,7 @@
 // The app launcher, down from under the bar: type to search the installed apps (name,
-// keywords, description), arrows to move, Enter to start, Esc to close. Apps that run in a
+// keywords, description) and the power actions (lock, log out, suspend, reboot, shut down;
+// services/Power.qml), arrows to move, Enter to start, Esc to close. Log out, reboot and shut
+// down ask for a second Enter or click. Apps that run in a
 // terminal open in kitty. Super + Space (Nusku's binds) or Super + D (niri's).
 import QtQuick
 import QtQuick.Layouts
@@ -27,27 +29,42 @@ PanelWindow {
     readonly property int rowHeight: 52
 
     // Best matches first: names that start with the text, then names that contain it, then
-    // the rest of what matches (keywords, generic name, description). No text: A to Z.
+    // the rest of what matches (keywords, generic name, description). No text: A to Z, apps
+    // only (the power actions show once you search).
     readonly property var results: {
         const q = search.text.trim().toLowerCase();
         const apps = DesktopEntries.applications.values.filter(a => !a.noDisplay);
         const words = a => [a.genericName, a.comment, ...(a.keywords ?? [])].join(" ").toLowerCase();
         const scored = [];
-        for (const a of apps) {
-            const name = (a.name ?? "").toLowerCase();
+        const consider = (item, name, rest) => {
             let score = -1;
             if (q === "") score = 3;
             else if (name.startsWith(q)) score = 0;
             else if (name.includes(q)) score = 1;
-            else if (words(a).includes(q)) score = 2;
-            if (score >= 0) scored.push({ a, score, name });
+            else if (rest.includes(q)) score = 2;
+            if (score >= 0) scored.push({ item, score, name });
+        };
+        for (const a of apps) consider(a, (a.name ?? "").toLowerCase(), words(a));
+        if (q !== "") {
+            for (const p of Power.actions)
+                consider({ power: p, name: p.text, comment: "Power", glyph: p.icon },
+                    p.text.toLowerCase(), "power " + p.keywords);
         }
         scored.sort((x, y) => x.score - y.score || x.name.localeCompare(y.name));
-        return scored.map(s => s.a);
+        return scored.map(s => s.item);
     }
+    // The power action waiting for its second Enter or click (its name).
+    property string armed: ""
+    onResultsChanged: armed = ""
 
     function launch(app) {
         if (!app) return;
+        if (app.power) {
+            if (app.power.confirm && armed !== app.name) { armed = app.name; return; }
+            menu.open = false;
+            Quickshell.execDetached(app.power.cmd);
+            return;
+        }
         menu.open = false;
         if (app.runInTerminal) Quickshell.execDetached(["kitty", "-e", ...app.command]);
         else app.execute();
@@ -58,6 +75,7 @@ PanelWindow {
         function onOpenChanged() {
             if (win.menu.open) {
                 search.text = "";
+                win.armed = "";
                 list.currentIndex = 0;
                 search.forceActiveFocus();
             }
@@ -123,6 +141,7 @@ PanelWindow {
                 clip: true
                 model: win.results
                 currentIndex: 0
+                onCurrentIndexChanged: win.armed = ""
                 boundsBehavior: Flickable.StopAtBounds
                 highlightMoveDuration: 0
                 // The best match sits right under the search field.
@@ -141,9 +160,17 @@ PanelWindow {
                         anchors.rightMargin: 10
                         spacing: 12
                         IconImage {
+                            visible: !row.modelData.power
                             implicitSize: 32
-                            source: Quickshell.iconPath(row.modelData.icon, "application-x-executable")
+                            source: row.modelData.power ? "" : Quickshell.iconPath(row.modelData.icon, "application-x-executable")
                             asynchronous: true
+                        }
+                        Icon {
+                            visible: !!row.modelData.power
+                            Layout.preferredWidth: 32
+                            text: row.modelData.glyph ?? ""
+                            size: 22
+                            color: (!!row.modelData.power && win.armed === row.modelData.name) ? Colors.red : Colors.accent
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -156,8 +183,10 @@ PanelWindow {
                             Label {
                                 Layout.fillWidth: true
                                 visible: text !== ""
-                                text: row.modelData.comment || row.modelData.genericName || ""
-                                color: Colors.overlay1
+                                text: (!!row.modelData.power && win.armed === row.modelData.name)
+                                    ? "Press Enter or click again to " + row.modelData.name.toLowerCase()
+                                    : row.modelData.comment || row.modelData.genericName || ""
+                                color: (!!row.modelData.power && win.armed === row.modelData.name) ? Colors.red : Colors.overlay1
                                 font.pixelSize: Theme.fontSizeSmall
                             }
                         }
@@ -174,7 +203,7 @@ PanelWindow {
                 Label {
                     anchors.centerIn: parent
                     visible: list.count === 0
-                    text: "No apps match"
+                    text: "Nothing matches"
                     color: Colors.overlay1
                 }
             }

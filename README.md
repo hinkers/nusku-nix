@@ -133,12 +133,13 @@ the screen (windows sit inside it), and every menu grows out of the frame:
 - The clock opens the calendar, down from the top: days with events have a dot, pick a day to
   see them. Events come from GNOME Calendar's accounts (Online Accounts: Google, Nextcloud);
   pick one, or Open Calendar, to see it there. Arrows, PgUp/PgDn and Home move about.
-- Super + Space opens the app launcher, down from the top: type, arrows, Enter. The same
-  place has clipboard history (Super + V: Enter copies an entry back, Delete removes it), the
-  wallpaper picker (Super + W) and the keybind search (Super + /: Enter runs the bind).
-- Super + Escape (or the power button in quick settings) opens the power menu, in from the
-  right: lock, log out, suspend, reboot, shut down. Log out, reboot and shut down want a
-  second click.
+- Super + Space opens the app launcher, down from the top: type, arrows, Enter. Searching
+  also finds the power actions ("lock", "suspend", "reboot", ...); log out, reboot and shut
+  down need Enter twice. The same place has clipboard history (Super + V: Enter copies an
+  entry back, Delete removes it), the wallpaper picker (Super + W) and the keybind search
+  (Super + /: Enter runs the bind).
+- Super + Escape opens the power menu, in from the right: lock, log out, suspend, reboot,
+  shut down. Log out, reboot and shut down want a second click.
 - Changing the volume, muting, or the brightness keys show a gauge in from the right edge.
 
 A click anywhere else, or Esc, closes a menu; one is open at a time.

@@ -1,6 +1,6 @@
 // The power menu, in from the right border: lock, log out, suspend, reboot, shut down. Log out,
 // reboot and shut down ask for a second click (the button turns red for a few seconds).
-// Keys: up/down, Enter, Esc. Super + Escape (or Super + X), or the quick settings power button.
+// Keys: up/down, Enter, Esc. Super + Escape (or Super + X). The actions are in services/Power.qml.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -22,13 +22,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: menu.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    readonly property var actions: [
-        { icon: "󰌾", text: "Lock", confirm: false, cmd: ["hyprlock"] },
-        { icon: "󰍃", text: "Log out", confirm: true, cmd: ["niri", "msg", "action", "quit", "--skip-confirmation"] },
-        { icon: "󰤄", text: "Suspend", confirm: false, cmd: ["systemctl", "suspend"] },
-        { icon: "󰜉", text: "Reboot", confirm: true, cmd: ["systemctl", "reboot"] },
-        { icon: "󰐥", text: "Shut down", confirm: true, cmd: ["systemctl", "poweroff"] },
-    ]
+    readonly property var actions: Power.actions
     property int current: 0
     property int armed: -1 // the action waiting for its second click
 
