@@ -10,6 +10,10 @@
 #                                NUSKU_FLAKE_ATTR, when set, is built instead of HOST: only the
 #                                Hyper-V test VM sets it, to HOST-hyperv-test (test/hyperv).
 #                                Any value not ending in -hyperv-test is refused (status 2).
+#   nusku_sudo_upfront           ask for the sudo password now (unless sudo needs none), then keep
+#                                it fresh in the background until the calling script exits, so the
+#                                switch at the end of a long build doesn't stop to ask. Returns 1
+#                                if sudo can't be had (wrong password, not in wheel).
 
 nix_flakes_config() {
     case "${NIX_CONFIG:-}" in
@@ -28,6 +32,17 @@ _rebuild_sudo_flag() {
         *--sudo*) echo --sudo ;;
         *) echo --use-remote-sudo ;;
     esac
+}
+
+nusku_sudo_upfront() {
+    sudo -n true 2>/dev/null || sudo -v || return 1
+    local script=$$
+    (
+        while kill -0 "$script" 2>/dev/null; do
+            sudo -n true 2>/dev/null || true
+            sleep 50
+        done
+    ) </dev/null >/dev/null 2>&1 &
 }
 
 nusku_rebuild() {

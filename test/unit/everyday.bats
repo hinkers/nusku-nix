@@ -42,6 +42,16 @@ if [ "$1" = --help ]; then echo "  --sudo  use sudo"; exit 0; fi
 printf '%s\n' "$(printf 'nixos-rebuild %s NIX_CONFIG=%s\n' "$*" "$NIX_CONFIG" | tr '\n' ' ')" >>"$CALLS"
 [ -z "${FAIL_BUILD:-}" ] || { echo "error: build failed"; exit 1; }
 EOF
+    # sudo: records each call. PASSWORD_SUDO: `sudo -n true` fails (a password is needed), so
+    # `sudo -v` asks; FAIL_SUDO: that fails too (wrong password).
+    cat >"$STUBS/sudo" <<'EOF'
+#!/bin/sh
+printf 'sudo %s\n' "$*" >>"$CALLS"
+case "$*" in
+    "-n true") [ -z "${PASSWORD_SUDO:-}${FAIL_SUDO:-}" ] ;;
+    -v) [ -z "${FAIL_SUDO:-}" ] ;;
+esac
+EOF
     chmod +x "$STUBS"/*
 }
 
@@ -54,6 +64,8 @@ rebuild() { PATH="$STUBS:$PATH" bash scripts/nusku-rebuild "$@"; }
 update() { PATH="$STUBS:$PATH" bash scripts/nusku-update "$@"; }
 built() { grep -qF "nixos-rebuild switch --flake $1#box --sudo NIX_CONFIG=extra-experimental-features = nix-command flakes" "$CALLS"; }
 nothing_built() { ! grep -q nixos-rebuild "$CALLS"; }
+# first_line PATTERN: the line number of the first call matching PATTERN (empty if none).
+first_line() { grep -n -m1 -- "$1" "$CALLS" | cut -d: -f1; }
 
 # upstream_commit: a new commit on origin (from another clone), as when the owner pushes.
 upstream_commit() {
@@ -73,6 +85,31 @@ upstream_commit() {
     [ "$status" -eq 0 ]
     built "$REPO"
     [ "$(grep -c nixos-rebuild "$CALLS")" -eq 1 ]
+}
+
+@test "rebuild: sudo is asked for first, before the build" {
+    record "$REPO"
+    PASSWORD_SUDO=1 run rebuild
+    [ "$status" -eq 0 ]
+    built "$REPO"
+    [ -n "$(first_line '^sudo -v')" ]
+    [ "$(first_line '^sudo -v')" -lt "$(first_line '^nixos-rebuild')" ]
+}
+
+@test "rebuild: passwordless sudo isn't asked for (no sudo -v)" {
+    record "$REPO"
+    run rebuild
+    [ "$status" -eq 0 ]
+    built "$REPO"
+    ! grep -q '^sudo -v' "$CALLS"
+}
+
+@test "rebuild: no sudo (wrong password) stops it before anything is built" {
+    record "$REPO"
+    FAIL_SUDO=1 run rebuild
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"the switch needs sudo"*"Nothing was built"* ]]
+    nothing_built
 }
 
 @test "rebuild: NUSKU_FLAKE_ATTR (set only in the Hyper-V test VM) picks the flake output" {
@@ -185,8 +222,28 @@ upstream_commit() {
     record "$REPO"
     NEW_LOCK='{ "pins": 2 }' run update <<<"n"
     [ "$status" -eq 0 ]
-    [ "$(sed -n 1p "$CALLS")" = "nix flake update (in $REPO)" ]
-    sed -n 2p "$CALLS" | grep -q '^nixos-rebuild switch'
+    grep -v '^sudo' "$CALLS" >"$BATS_TEST_TMPDIR/steps" # the sudo keep-alive runs alongside
+    [ "$(sed -n 1p "$BATS_TEST_TMPDIR/steps")" = "nix flake update (in $REPO)" ]
+    sed -n 2p "$BATS_TEST_TMPDIR/steps" | grep -q '^nixos-rebuild switch'
+}
+
+@test "update: sudo is asked for first, before the update and the build" {
+    record "$REPO"
+    PASSWORD_SUDO=1 NEW_LOCK='{ "pins": 2 }' run update <<<"n"
+    [ "$status" -eq 0 ]
+    [ -n "$(first_line '^sudo -v')" ]
+    [ "$(first_line '^sudo -v')" -lt "$(first_line '^nix flake update')" ]
+}
+
+@test "update: no sudo stops it before the pull or the update" {
+    record "$REPO"
+    upstream_commit "from elsewhere"
+    FAIL_SUDO=1 run update <<<"n"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"the switch needs sudo"*"Nothing was changed"* ]]
+    ! grep -q '^nix flake update' "$CALLS"
+    [ ! -f "$REPO/upstream.txt" ]
+    nothing_built
 }
 
 @test "update: no (or no answer) leaves flake.lock updated but uncommitted" {
@@ -244,7 +301,7 @@ upstream_commit() {
     [[ "$output" == *"hosts/box/settings.json"* ]]
     [ ! -f "$REPO/upstream.txt" ]
     [ "$(cat "$REPO/hosts/box/settings.json")" = '{ "mine": true }' ]
-    [ ! -s "$CALLS" ]
+    ! grep -qv '^sudo' "$CALLS" # nothing but asking for sudo
 }
 
 @test "update: staged changes stop it too" {
@@ -255,7 +312,7 @@ upstream_commit() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"uncommitted changes"* ]]
     [ "$(git -C "$REPO" diff --cached --name-only)" = notes.txt ]
-    [ ! -s "$CALLS" ]
+    ! grep -qv '^sudo' "$CALLS" # nothing but asking for sudo
 }
 
 @test "update: a pull that can't fast-forward stops it and leaves the local commits" {
@@ -271,7 +328,7 @@ upstream_commit() {
     [[ "$output" == *"git pull --ff-only"* ]]
     [ "$(git -C "$REPO" rev-parse HEAD)" = "$head" ]
     [ -z "$(git -C "$REPO" status --porcelain)" ]
-    [ ! -s "$CALLS" ]
+    ! grep -qv '^sudo' "$CALLS" # nothing but asking for sudo
 }
 
 @test "update: a failed build leaves flake.lock uncommitted and says how to go back" {
@@ -293,7 +350,7 @@ upstream_commit() {
     NUSKU_HOSTNAME=elsewhere run update <<<"y"
     [ "$status" -eq 1 ]
     [[ "$output" == *"hosts/elsewhere"* ]]
-    [ ! -s "$CALLS" ]
+    ! grep -qv '^sudo' "$CALLS" # nothing but asking for sudo
 }
 
 @test "update: no upstream branch stops it and names the likely causes" {
@@ -303,7 +360,7 @@ upstream_commit() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"git pull --ff-only failed"*"no network, no upstream branch, or this machine and the remote both have new commits"* ]]
     [ -z "$(git -C "$REPO" status --porcelain)" ]
-    [ ! -s "$CALLS" ]
+    ! grep -qv '^sudo' "$CALLS" # nothing but asking for sudo
 }
 
 # --- Both -----------------------------------------------------------------------------------

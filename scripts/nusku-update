@@ -28,8 +28,9 @@ case "${1:-}" in
 Usage: nusku-update
 
 Updates this machine: pulls your Nusku checkout (git pull --ff-only), updates flake.lock
-(nix flake update), rebuilds and switches (asks for sudo for the switch), then asks whether to
-commit flake.lock. Commit or stash your own changes first: it stops if there are any.
+(nix flake update), rebuilds and switches, then asks whether to commit flake.lock. It asks
+for your sudo password first (for the switch), so you can leave it to build. Commit or
+stash your own changes first: it stops if there are any.
 If the new system is broken, pick the previous generation in the boot menu.
 
 The checkout is $NUSKU_REPO, or else the one install.sh recorded in ~/.config/nusku/repo.
@@ -75,6 +76,11 @@ $changes
 Commit them (or stash them: git stash), then run $me again. (A flake.lock left by a failed
 update goes back with: git -C $repo checkout flake.lock)"
 fi
+
+# The sudo password now (for the switch at the end), not after the pull, update and build.
+# shellcheck source=lib/sh/rebuild.sh disable=SC1091
+source "$repo/lib/sh/rebuild.sh"
+nusku_sudo_upfront || die "the switch needs sudo, and sudo didn't work (wrong password, or your user isn't in the wheel group). Nothing was changed."
 
 # 2. Pull. --ff-only never merges: if this machine has commits the remote hasn't (or the other
 #    way round on both sides), git refuses and nothing changes.

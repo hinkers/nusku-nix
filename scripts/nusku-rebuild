@@ -20,7 +20,8 @@ case "${1:-}" in
         cat <<'USAGE'
 Usage: nusku-rebuild
 
-Builds this machine from your Nusku checkout and switches to it (asks for sudo for the switch).
+Builds this machine from your Nusku checkout and switches to it. It asks for your sudo
+password first (for the switch), so you can leave it to build.
 Use it after you edit the checkout, e.g. hosts/<name>/settings.json or a file in config/.
 New files must be `git add`ed first: the build only sees files git knows about.
 If the new system is broken, pick the previous generation in the boot menu.
@@ -61,5 +62,7 @@ fi
 
 # shellcheck source=lib/sh/rebuild.sh disable=SC1091
 source "$repo/lib/sh/rebuild.sh"
+# The password now, not a minute into the build.
+nusku_sudo_upfront || die "the switch needs sudo, and sudo didn't work (wrong password, or your user isn't in the wheel group). Nothing was built."
 nusku_rebuild "$repo" "$host" ||
     die "the build failed (see above). If it got as far as switching and the system misbehaves, pick the previous generation in the boot menu."
