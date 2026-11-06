@@ -30,6 +30,8 @@ gestures {
 layout {
     gaps 10
     center-focused-column "never"
+    // A window on its own on a workspace sits in the middle, not against the left edge.
+    always-center-single-column
     preset-column-widths {
         proportion 0.33333
         proportion 0.5
